@@ -5,7 +5,7 @@ from distutils.core import setup
 
 setup(
     name="neohubby",
-    version="0.0.2",
+    version="0.0.3",
     author="Ali Afshar",
     author_email="aafshar@gmail.com",
     description="Python API for Neohub heating controllers from Heatmiser.",
