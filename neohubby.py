@@ -147,6 +147,14 @@ class Hub:
     """
     return self.send({'GET_PROFILE': profile_name})
 
+  def get_profile_0(self, zone_name: str):
+    """GET_PROFILE_0 command
+
+    Args:
+      zone_name: zone or device name.
+    """
+    return self.send({'GET_PROFILE_0': zone_name})
+
   def run_profile_id(self, profile_id: int, zones: [str]):
     """RUN_PROFILE_ID command
 
@@ -172,6 +180,24 @@ class Hub:
     {"ZONE_TITLE":["HCtest","HCtest2"]} 
     """
     return self.send({'ZONE_TITLE': [old_title, new_title]})
+
+  def get_live_data(self):
+    """GET_LIVE_DATA command
+
+    The live data array contains up to the minute status information about the
+    thermostats and the timestamps for all the caches.
+    
+    No arguments.
+    """
+    return self.send({'GET_LIVE_DATA': 0})
+
+
+  def info(self):
+    """INFO command
+
+    No arguments.
+    """
+    return self.send({'INFO': 0})
     
 
 
@@ -184,10 +210,25 @@ def new_hub(host, port=4242):
 
 if __name__ == '__main__':
   h = new_hub('10.0.0.30')
-  p = h.get_zones()
-  print(p)
+  #p = h.get_zones()
+  #p = h.get_live_data()
+  #print(p)
+  #print(p.keys())
+  #print(p['devices'][0].keys())
+
+  #d = p['devices'][0]
+
+  #print(d['ZONE_NAME'])
+  #print(d['ACTIVE_PROFILE'])
+  #for z in p:
+  #  print(z)
 
   #h.zone_title('Bedroom 3 Ensuite', 'Haeideh Ensuite')
   #r = h.run_profile_id(p, ['Office'])
   #print(r)
+
+  #p = h.get_profile_0('Kitchen')
+
+  p = h.info()
+  print(p)
 
