@@ -41,17 +41,23 @@ class SocketSender(Sender):
 
 class LoggingSender(Sender):
 
-  def __init__(self): self.log = []
+  def __init__(self):
+    self.log = []
 
-  def send(self, msg: dict): self.log.append(msg)
+  def send(self, msg: dict):
+    self.log.append(msg)
 
   
 
 class Hub:
 
-  def __init__(self, sender: Sender): self.sender = sender
+  def __init__(self, sender: Sender):
+    """Create a new Hub"""
+    self.sender = sender
 
-  def send(self, msg): return self.sender.send(msg)
+  def send(self, msg):
+    """Send a single message to the server."""
+    return self.sender.send(msg)
 
   def get_zones(self):
     """GET_ZONES command.
@@ -82,7 +88,7 @@ class Hub:
     Args:
       room_name: the name of the room
 
-    {“GET_DEVICE_LIST”:"room name"} returns a list of all devices except Neostats
+    {"GET_DEVICE_LIST":"room name"} returns a list of all devices except Neostats
     {"room name": []} 
 
     """
@@ -178,10 +184,6 @@ def new_hub(host, port=4242):
 
 if __name__ == '__main__':
   h = new_hub('10.0.0.30')
-  #for n in h.get_profile_names():
-  #  print(h.get_profile(n))
-
-  #p = h.get_profile('Cool')
   p = h.get_zones()
   print(p)
 
