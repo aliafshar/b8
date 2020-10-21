@@ -439,7 +439,7 @@ class TerminalView(B8View):
       'insert-link', 'Connect browser with terminal', btype=Gtk.ToggleButton)
     tools.pack_start(Gtk.Frame(), expand=True, fill=True, padding=0)
     tools.pack_start(self.link_button, expand=False, fill=False, padding=0)
-    #self.configure()
+    self.configure()
     return widget
 
   def connect_ui(self):
