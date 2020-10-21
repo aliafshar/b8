@@ -34,5 +34,4 @@ $ python3 b8.py
 
 Set up your NeoVim however you like it. Yummy!
 
-Nothing yet for terminals, but coming soon. It uses the solarized dark theme, so
-if you hate that, I'm sorry.
+Nothing yet for terminals, but coming soon. I'm sorry.
