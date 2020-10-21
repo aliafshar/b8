@@ -6,6 +6,8 @@ Bominade is the successor to a8 and PIDA. It is an extremely light-weight IDE
 based on NeoVim, a file browser and a terminal emulator. It is currently in
 heavy development.
 
+![Bominade screenshot](tools/screenshot.png)
+
 ## Getting started
 
 I only tested it on an old LTS ubuntu.
