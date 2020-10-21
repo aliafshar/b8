@@ -3,7 +3,7 @@
 # MIT License. See LICENSE.
 # vim: ft=python sw=2 ts=2 sts=2 tw=80
 
-import math, os, pwd, subprocess, sys, threading, uuid
+import argparse, math, os, pwd, subprocess, sys, threading, uuid
 
 import gi
 gi.require_version("Gtk", "3.0")
@@ -94,14 +94,20 @@ class B8:
   """
 
   def __init__(self):
+    self.arguments = Arguments(self)
     self.instance = Instance(self)
-    self.ipc = Ipc(self)
-    self.contexts = Contexts(self)
-    self.vim = Vim(self)
-    self.buffers = Buffers(self)
-    self.files = Files(self)
-    self.terminals = Terminals(self)
-    self.ui = B8Window(self)
+    if self.arguments.args.remote:
+      self.running = False
+      self.remote = Remote(self)
+    else:
+      self.running = True
+      self.ipc = Ipc(self)
+      self.contexts = Contexts(self)
+      self.vim = Vim(self)
+      self.buffers = Buffers(self)
+      self.files = Files(self)
+      self.terminals = Terminals(self)
+      self.ui = B8Window(self)
 
   def show_path(self, path, is_dir=False):
     if is_dir or os.path.isdir(path):
@@ -121,6 +127,7 @@ class B8:
     Gtk.main()
 
   def quit(self):
+    self.running = False
     self.ipc.destroy()
     Gtk.main_quit()
 
@@ -170,6 +177,17 @@ class B8Window(B8View):
     self.b8.quit()
 
 
+
+class Arguments(B8Object):
+
+  def init(self):
+    parser = argparse.ArgumentParser('bominade IDE')
+    parser.add_argument('--remote')
+    self.args = parser.parse_args()
+    print(self.args)
+
+
+
 class Instance(B8Object):
 
   def init(self):
@@ -190,17 +208,54 @@ class Instance(B8Object):
       self.debug(f'run exists {self.root_path}')
 
 
+class Remote(B8Object):
 
+  def init(self):
+
+    command = self.b8.arguments.args.remote
+    potentials = os.listdir(self.b8.instance.run_path)
+    if len(potentials) == 1:
+      if command == 'list':
+        pass
+
+      elif command == 'ping':
+        pass
+
+      else:
+        msg = msgpack.dumps(['open', command])
+        pipe_path = os.path.join(self.b8.instance.run_path, potentials[0])
+        pipe = os.open(pipe_path, os.O_WRONLY)
+        os.write(pipe, msg)
+        os.close(pipe)
 
 
 
 class Ipc(B8Object):
 
   def init(self):
-    pass
+    self.uid = str(uuid.uuid4())
+    self.pipe_path = os.path.join(self.b8.instance.run_path, self.uid)
+    self.debug(f'opening rpc fifo at {self.pipe_path}')
+    self.unpacker = msgpack.Unpacker()
+    os.mkfifo(self.pipe_path)
+    self.fifo = os.open(self.pipe_path, os.O_RDONLY | os.O_NONBLOCK)
+    GLib.io_add_watch(self.fifo, 0, GLib.IOCondition.IN, self.on_raw)
+
+  def on_raw(self, channel, condition):
+    while True:
+      d = os.read(self.fifo, 1024)
+      self.unpacker.feed(d)
+      if len(d) < 1024:
+        break
+    for msg in self.unpacker:
+      print(msg)
+      if msg[0].decode('utf-8') == 'open':
+        self.b8.show_path(msg[1].decode('utf-8'))
+
 
   def destroy(self):
-    pass
+    os.close(self.fifo)
+    os.remove(self.pipe_path)
 
 
 
@@ -444,7 +499,7 @@ class TerminalView(B8View):
       self.update_label()
       if self.linked_browser:
         self.b8.show_path(self.child_cwd)
-    return True
+    return self.b8.running
 
   def update_label(self):
     self.label.set_markup(self.markup())
@@ -1368,7 +1423,8 @@ KEY_TABLE = {
 
 def main():
   b8 = B8()
-  b8.run()
+  if b8.running:
+    b8.run()
 
 
 if __name__ == '__main__':
