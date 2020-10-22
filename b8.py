@@ -1388,18 +1388,6 @@ class VimView(B8View):
 
     
 
-def _stringify_keiy(key, state):
-    send = []
-    if state & SHIFT:
-        send.append('S')
-    if state & CTRL:
-        send.append('C')
-    if state & ALT:
-        send.append('A')
-    send.append(key)
-    return '<' + '-'.join(send) + '>'
-
-
 MODIFIER_NAMES = {
     'Shift_L',
     'Shift_R',
