@@ -37,6 +37,7 @@ class B8Object:
 
   def debug(self, msg):
     """Debug a message."""
+    return
     self.log('D', msg)
 
   def info(self, msg):
