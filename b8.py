@@ -77,10 +77,11 @@ class B8View(B8Object):
       self.error(f'connecting {fname} does not exist for {self}')
     widget.connect(event, f)
 
-  def mini_button(self, icon_name, toolip, btype=Gtk.Button):
+  def mini_button(self, icon_name, tooltip, btype=Gtk.Button):
     b = btype()
     i = Gtk.Image.new_from_icon_name(icon_name, Gtk.IconSize.SMALL_TOOLBAR)
     b.set_image(i)
+    b.set_tooltip_text(tooltip)
     return b
 
 
@@ -140,12 +141,7 @@ class B8Window(B8View):
   def create_ui(self):
     self.window = Gtk.Window()
     self.window.set_icon_name('media-seek-forward')
-    self.window.set_title('b8 <3 u')
-
-    #self.window.connect('configure-event', self.on_configure_event)
-
-    #self.window.connect('destroy', Gtk.main_quit)
-
+    self.window.set_title('b8 ♡ u')
     hsplit = Gtk.HPaned()
     lsplit = Gtk.VPaned()
     rsplit = Gtk.VPaned()
@@ -273,7 +269,6 @@ class Ipc(B8Object):
       if len(d) < 1024:
         break
     for msg in self.unpacker:
-      print(msg)
       if msg[0].decode('utf-8') == 'open':
         self.b8.show_path(msg[1].decode('utf-8'))
 
@@ -615,33 +610,6 @@ class Buffer:
     return f'<Buffer path={self.path} number={self.number}'
 
 
-class Fileish:
-
-  path = ''
-
-  def __init__(self, name, parent):
-    self.name = name
-    self.parent = parent
-    self.path = os.path.join(self.parent, name)
-    self.is_dir = os.path.isdir(self.path)
-    if self.is_dir:
-      self.prefix='0'
-      self.icon = Gtk.STOCK_DIRECTORY
-    else:
-      self.prefix='1'
-      self.icon = Gtk.STOCK_FILE
-    self.ename = GLib.markup_escape_text(self.name)
-    self.sortable = f'{self.prefix}_{self.name}'
-    self.markup = f'<span size="medium">{self.ename}</span>'
-
-  def __repr__(self):
-    return f'<File path={self.path} is_dir={self.is_dir}>'
-
-
-
-
-
-
 class Buffers(B8View):
 
   def create_ui(self):
@@ -702,10 +670,47 @@ class Buffers(B8View):
     cell.set_property('markup', b.markup)
 
 
+class File:
+
+  path = ''
+  modifier = ' '
+
+  def __init__(self, name, parent):
+    self.name = name
+    self.parent = parent
+    self.path = os.path.join(self.parent, name)
+    self.is_dir = os.path.isdir(self.path)
+    if self.is_dir:
+      self.prefix='0'
+      self.icon = Gtk.STOCK_DIRECTORY
+      self.modifier = '/'
+    else:
+      self.prefix='1'
+      self.icon = Gtk.STOCK_FILE
+    self.ename = GLib.markup_escape_text(self.name)
+    self.sortable = f'{self.prefix}_{self.name}'
+    self.markup = f'<span size="medium">{self.ename}</span>'
+
+  modifier_colors = {
+    'M': '#d30102',
+    '??': '#cb4b16',
+    '/': '#859900',
+  }
+
+  @property
+  def modifier_color(self):
+    c = self.modifier_colors.get(self.modifier, self.modifier_colors['/'])
+    col = Gdk.RGBA()
+    col.parse(c)
+    return col
+
+  def __repr__(self):
+    return f'<File path={self.path} is_dir={self.is_dir}>'
 
 class Files(B8View):
 
   current_path = None
+  show_hidden = False
 
   def create_ui(self):
     widget = Gtk.VBox()
@@ -721,11 +726,18 @@ class Files(B8View):
     self.column = Gtk.TreeViewColumn('', self.cell)
     self.column.set_cell_data_func(self.cell, self.render)
     self.icon_cell = Gtk.CellRendererPixbuf()
-    self.icon_cell.set_padding(3, 1)
     self.icon_column = Gtk.TreeViewColumn('icon', self.icon_cell)
     self.icon_column.set_cell_data_func(self.icon_cell, self.render_icon)
-    self.tree.append_column(self.icon_column)
+    #self.tree.append_column(self.icon_column)
     self.model.set_sort_column_id(1, Gtk.SortType.ASCENDING)
+    self.modifier_cell = Gtk.CellRendererText()
+    self.modifier_cell.set_property('family', 'Monospace')
+    self.modifier_cell.set_property('weight', 800)
+    self.modifier_cell.set_padding(3, 1)
+    self.modifier_column = Gtk.TreeViewColumn('', self.modifier_cell)
+    self.modifier_column.set_cell_data_func(self.modifier_cell,
+        self.render_modifier)
+    self.tree.append_column(self.modifier_column)
     self.tree.append_column(self.column)
     self.tree.connect('row-activated', self.on_row_activated)
     self.tree.connect('button-press-event', self.on_button_press_event)
@@ -747,15 +759,24 @@ class Files(B8View):
         'Refresh the current directory list.',
     )
 
+    self.hidden_button = self.mini_button(
+        'view-more',
+        'Show / Hide hidden files.',
+        btype=Gtk.ToggleButton,
+    )
+
     tools.pack_start(self.up_button, expand=False, fill=False, padding=0)
     tools.pack_start(self.refresh_button, expand=False, fill=False, padding=0)
     tools.pack_start(self.terminal_button, expand=False, fill=False,
         padding=0)
+    tools.pack_start(Gtk.Frame(), expand=True, fill=True, padding=0)
+    tools.pack_start(self.hidden_button, expand=False, fill=False, padding=0)
 
 
     self.up_button.connect('clicked', self.on_up_button_clicked)
     self.refresh_button.connect('clicked', self.on_refresh_button_clicked)
     self.terminal_button.connect('clicked', self.on_terminal_button_clicked)
+    self.hidden_button.connect('clicked', self.on_hidden_button_clicked)
 
     p = os.path.expanduser('~')
     self.browse(p)
@@ -768,6 +789,12 @@ class Files(B8View):
   def render_icon(self, cell_layout, cell, tree_model, iter, *data):
     b = tree_model.get_value(iter, 0)
     cell.set_property('icon_name', b.icon)
+
+  def render_modifier(self, cell_layout, cell, tree_model, iter, *data):
+    b = tree_model.get_value(iter, 0)
+    cell.set_property('text', b.modifier[0])
+    cell.set_property('foreground-rgba', b.modifier_color)
+
 
   def on_row_activated(self, w, path, column):
     giter = self.model.get_iter(path)
@@ -801,10 +828,42 @@ class Files(B8View):
   def browse_thread(self, path):
     d = os.listdir(path)
     for p in d:
-      f = Fileish(p, path)
-      if f.name.startswith('.'):
+      f = File(p, path)
+      if not self.show_hidden and f.name.startswith('.'):
         continue
       GLib.idle_add(self.append, f)
+    GLib.idle_add(self.scroll_to_top)
+    for t in [0, 10, 20, 50, 100, 200]:
+      GLib.timeout_add(t, self.scroll_to_top)
+    self.git_thread(path)
+
+  def git_thread(self, path):
+    try:
+      p = subprocess.Popen(['git', 'status', '--porcelain', '.'], cwd=path,
+          stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+      p.wait()
+      ignored = p.stderr.read()
+      if p.returncode > 0:
+        return
+      git_status = p.stdout.read().splitlines()
+      for l in git_status:
+        mod, name = l.decode('utf-8').split()
+        name = os.path.basename(name)
+        mod = mod.strip()
+        GLib.idle_add(self.apply_git_data, name, mod)
+
+    except FileNotFoundError:
+      self.error('if you want Git stuff, install it')
+
+
+    GLib.idle_add(self.scroll_to_top)
+
+  def apply_git_data(self, name, modifier):
+    for grow in self.model:
+      f = self.model.get_value(grow.iter, 0)
+      if f.name == name:
+        f.modifier = modifier
+        self.model.row_changed(self.model.get_path(grow.iter), grow.iter)
 
   def browse(self, path, refresh=False):
     if refresh or path != self.current_path:
@@ -815,6 +874,10 @@ class Files(B8View):
       self.model.clear()
     else:
       self.debug(f'not browsing the path I am already at {path}')
+
+  def scroll_to_top(self):
+    self.tree.scroll_to_point(0, 0)
+
 
   def on_up_button_clicked(self, w):
     parent = os.path.dirname(self.current_path)
@@ -827,6 +890,10 @@ class Files(B8View):
   def on_terminal_button_clicked(self, w):
     self.debug('terminal button clicked')
     self.b8.show_shell(self.current_path)
+
+  def on_hidden_button_clicked(self, w):
+    self.show_hidden = self.hidden_button.get_active()
+    self.browse(self.current_path, refresh=True)
 
 
 
