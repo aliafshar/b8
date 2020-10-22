@@ -49,4 +49,10 @@ $ python3 b8.py
 
 Set up your NeoVim however you like it. Yummy!
 
-Nothing yet for terminals, but coming soon. I'm sorry.
+Edit `~/.config/b8/b8rc` which is a standard ini file.
+```
+[terminal]
+theme = solarized_dark
+```
+
+There are other themes: tango, dark_pastels, green_on_black and others. I should list them.
