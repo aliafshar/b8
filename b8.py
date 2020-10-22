@@ -3,7 +3,7 @@
 # MIT License. See LICENSE.
 # vim: ft=python sw=2 ts=2 sts=2 tw=80
 
-import argparse, math, os, pwd, subprocess, sys, threading, uuid
+import argparse, configparser, math, os, pwd, subprocess, sys, threading, uuid
 
 import gi
 gi.require_version("Gtk", "3.0")
@@ -96,6 +96,7 @@ class B8:
   def __init__(self):
     self.arguments = Arguments(self)
     self.instance = Instance(self)
+    self.config = Config(self)
     if self.arguments.args.remote:
       self.running = False
       self.remote = Remote(self)
@@ -108,6 +109,7 @@ class B8:
       self.files = Files(self)
       self.terminals = Terminals(self)
       self.ui = B8Window(self)
+      self.show_shell(os.getcwd())
 
   def show_path(self, path, is_dir=False):
     if is_dir or os.path.isdir(path):
@@ -184,8 +186,6 @@ class Arguments(B8Object):
     parser = argparse.ArgumentParser('bominade IDE')
     parser.add_argument('--remote')
     self.args = parser.parse_args()
-    print(self.args)
-
 
 
 class Instance(B8Object):
@@ -193,6 +193,7 @@ class Instance(B8Object):
   def init(self):
     self.root_path = os.path.expanduser('~/.config/b8')
     self.run_path = os.path.join(self.root_path, 'run')
+    self.config_path = os.path.join(self.root_path, 'b8rc')
     self.create()
   
   def create(self):
@@ -206,6 +207,30 @@ class Instance(B8Object):
       self.debug('create run directory {self.run_path}')
     except FileExistsError:
       self.debug(f'run exists {self.root_path}')
+    if not os.path.exists(self.config_path):
+      with open(self.config_path, 'w') as f:
+        f.write('# Bominade Config File\n')
+
+
+class Config(B8Object):
+
+  default_config = {
+      'terminal': {
+        'theme':'xubuntu-dark'
+      }
+  }
+
+  def init(self):
+    self.parser = configparser.ConfigParser()
+    self.parser.read(self.b8.instance.config_path)
+
+  def get(self, section, key):
+    if self.parser.has_section(section):
+      value = self.parser.get(section, key, fallback=None)
+      if value:
+        return value
+    else:
+      return self.default_config[section][key]
 
 
 class Remote(B8Object):
@@ -252,7 +277,6 @@ class Ipc(B8Object):
       if msg[0].decode('utf-8') == 'open':
         self.b8.show_path(msg[1].decode('utf-8'))
 
-
   def destroy(self):
     os.close(self.fifo)
     os.remove(self.pipe_path)
@@ -285,14 +309,6 @@ class Action:
 
 
 
-class Config:
-
-  class Terminal:
-    ColorForeground='#839496'
-    ColorBackground='#002b36'
-    ColorCursor='#93a1a1'
-    ColorPalette='#073642;#dc322f;#859900;#b58900;#268bd2;#d33682;#2aa198;#eee8d5;#002b36;#cb4b16;#586e75;#657b83;#839496;#6c71c4;#93a1a1;#fdf6e3'
-    ColorBold='#93a1a1'
 
 
 
@@ -340,7 +356,7 @@ class Contexts(B8Object):
     pass
 
   def regex(self, name):
-    return GLib.Regex(self.ereg_exprs[name], 0, 0) 
+    return GLib.Regex(self.ereg_exprs[name], GLib.RegexCompileFlags.MULTILINE, 0) 
 
   def on_open(self, path):
     print('open')
@@ -378,7 +394,33 @@ class Contexts(B8Object):
     self.b8.show_shell(data)
 
 
-  
+
+class TerminalTheme(B8Object):
+
+  def init(self):
+    self.default_theme = TERMINAL_THEMES.get('b8')
+    theme_name = self.b8.config.get('terminal', 'theme')
+    raw_theme = TERMINAL_THEMES.get(theme_name)
+    if not raw_theme:
+      self.error(f'theme {theme_name} does not exist, using default')
+      raw_theme = self.default_theme
+    self.parse(raw_theme)
+
+  def parse(self, theme):
+    self.foreground = Gdk.RGBA()
+    self.foreground.parse(theme['foreground'])
+    self.background = Gdk.RGBA()
+    self.background.parse(theme['background'])
+    self.cursor = Gdk.RGBA()
+    self.cursor.parse(theme.get('cursor', theme['foreground']))
+    self.palette = []
+    theme_palette = theme['palette']
+    for s in theme_palette:
+      c = Gdk.RGBA()
+      c.parse(s)
+      self.palette.append(c)
+    
+
 
 
 class Terminals(B8View):
@@ -389,7 +431,7 @@ class Terminals(B8View):
     self.book.set_tab_pos(Gtk.PositionType.BOTTOM)
     self.book.set_scrollable(True)
     widget.pack_start(self.book, True, True, 0)
-    self.create(os.path.expanduser('~'))
+    self.theme = TerminalTheme(self.b8)
     return widget
 
   def create(self, wd):
@@ -439,7 +481,11 @@ class TerminalView(B8View):
       'insert-link', 'Connect browser with terminal', btype=Gtk.ToggleButton)
     tools.pack_start(Gtk.Frame(), expand=True, fill=True, padding=0)
     tools.pack_start(self.link_button, expand=False, fill=False, padding=0)
-    #self.configure()
+
+    theme = self.b8.terminals.theme
+    self.term.set_colors(theme.foreground, theme.background, theme.palette)
+    self.term.set_color_cursor(theme.cursor)
+    self.term.set_color_cursor_foreground(theme.cursor)
     return widget
 
   def connect_ui(self):
@@ -450,18 +496,6 @@ class TerminalView(B8View):
     self.connect('clicked', self.select_button, 'select_button')
     self.connect('clicked', self.term_button, 'term_button')
 
-  def configure(self):
-    fg = Gdk.RGBA()
-    fg.parse(Config.Terminal.ColorForeground)
-    bg = Gdk.RGBA()
-    bg.parse(Config.Terminal.ColorBackground)
-    pl = [Gdk.RGBA() for i in range(16)]
-    pl = []
-    for s in Config.Terminal.ColorPalette.split(';'):
-      c = Gdk.RGBA()
-      c.parse(s)
-      pl.append(c)
-    self.term.set_colors(fg, bg, pl)
 
 
   def start(self, wd):
@@ -727,7 +761,6 @@ class Files(B8View):
     self.browse(p)
     return widget
 
-
   def render(self, cell_layout, cell, tree_model, iter, *data):
     b = tree_model.get_value(iter, 0)
     cell.set_property('markup', b.markup)
@@ -788,10 +821,11 @@ class Files(B8View):
     self.browse(parent)
 
   def on_refresh_button_clicked(self, w):
+    self.debug('refresh button clicked')
     self.browse(self.current_path)
 
   def on_terminal_button_clicked(self, w):
-    print('terminal button')
+    self.debug('terminal button clicked')
     self.b8.show_shell(self.current_path)
 
 
@@ -1368,6 +1402,31 @@ KEY_TABLE = {
 }
 
 TERMINAL_THEMES = {
+  "b8": {
+    "name": "b8",
+    "foreground": "#839496",
+    "background": "#2e2e2e",
+    "cursor": "#f0544c",
+    "activity": "#dc322f",
+    "palette": [
+      "#073642",
+      "#dc322f",
+      "#859900",
+      "#b58900",
+      "#268bd2",
+      "#d33682",
+      "#2aa198",
+      "#eee8d5",
+      "#002b36",
+      "#cb4b16",
+      "#586e75",
+      "#657b83",
+      "#839496",
+      "#6c71c4",
+      "#93a1a1",
+      "#fdf6e3"
+    ]
+  },
   "xubuntu_dark": {
     "name": "xubuntu_dark",
     "foreground": "#b7b7b7",
@@ -1420,26 +1479,20 @@ TERMINAL_THEMES = {
   },
   "white_on_black": {
     "name": "white_on_black",
-    "foreground": None,
-    "background": None,
-    "cursor": None,
-    "activity": None,
+    "foreground": "#ffffff",
+    "background": "#000000",
     "palette": []
   },
   "black_on_white": {
     "name": "black_on_white",
     "foreground": "#000000",
     "background": "#ffffff",
-    "cursor": None,
-    "activity": None,
     "palette": []
   },
   "green_on_black": {
     "name": "green_on_black",
     "foreground": "#17f018",
     "background": "#000000",
-    "cursor": None,
-    "activity": None,
     "palette": []
   },
   "xubuntu_light": {
@@ -1469,10 +1522,8 @@ TERMINAL_THEMES = {
   },
   "tango": {
     "name": "tango",
-    "foreground": None,
-    "background": None,
-    "cursor": None,
-    "activity": None,
+    "foreground": "#ffffff",
+    "background": "#000000",
     "palette": [
       "#000000",
       "#cc0000",
@@ -1522,7 +1573,6 @@ TERMINAL_THEMES = {
     "foreground": "#dcdcdc",
     "background": "#2c2c2c",
     "cursor": "#dcdcdc",
-    "activity": None,
     "palette": [
       "#3f3f3f",
       "#705050",
@@ -1546,8 +1596,6 @@ TERMINAL_THEMES = {
     "name": "xterm",
     "foreground": "#000000",
     "background": "#ffffff",
-    "cursor": None,
-    "activity": None,
     "palette": [
       "#000000",
       "#cd0000",
