@@ -17,6 +17,10 @@ heavy development.
 * Vim Buffer list - literally the only missing thing from Vim and we provide a nice way to view the path name and the parent directory
 * Works on Linux - this thing hasn't been tested on other platforms where it probably works, but we care about Linux
 
+## Obligatory screenshot
+
+This is what we mean...
+
 ![Bominade screenshot](tools/screenshot.png)
 
 ## Getting started
