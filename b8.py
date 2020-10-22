@@ -561,6 +561,7 @@ class TerminalView(B8View):
   def on_term_button_clicked(self, w):
     self.b8.show_shell(self.child_cwd)
 
+
 class Buffer:
 
   path = ''
@@ -575,6 +576,9 @@ class Buffer:
     self.eparent = GLib.markup_escape_text(self.parent)
     self.markup = (f'<span size="medium" weight="bold">{self.ename}</span>\n'
                    f'<span size="x-small">{self.parent}</span>')
+
+  def __repr__(self):
+    return f'<Buffer path={self.path} number={self.number}'
 
 
 class Fileish:
@@ -596,7 +600,8 @@ class Fileish:
     self.sortable = f'{self.prefix}_{self.name}'
     self.markup = f'<span size="medium">{self.ename}</span>'
 
-
+  def __repr__(self):
+    return f'<File path={self.path} is_dir={self.is_dir}>'
 
 
 
@@ -619,26 +624,23 @@ class Buffers(B8View):
     widget = Gtk.ScrolledWindow()
     widget.add(self.tree)
     return widget
-
-  
-  def has(self, path):
-    pass
     
   def select(self, giter):
-    print('select', giter)
     selection = self.tree.get_selection()
-
     if selection.get_selected() != giter:
       self.tree.get_selection().select_iter(giter)
-
-    self.b8.ui.window.set_title(self.model.get(giter, 0)[0].path)
+    b = self.model.get(giter, 0)[0]
+    self.debug(f'select {b}')
+    self.b8.ui.window.set_title(b.path)
     self.b8.ui.vimview.drawing_area.grab_focus()
 
   def change(self, path, number):
+    self.debug(f'buffer change {path} {number}')
     for grow in self.model:
       b = self.model.get_value(grow.iter, 0)
 
       if b.number == number and b.path == path:
+        self.debug(f'existing {b}')
         self.select(grow.iter)
         return
 
@@ -659,7 +661,7 @@ class Buffers(B8View):
     giter = self.model.get_iter(path)
     b = self.model.get(giter, 0)[0]
     self.b8.vim.nvim_change_buffer(b.number)
-    print('row-activated', b)
+    self.debug(f'row-activated {b}')
 
   def render(self, cell_layout, cell, tree_model, iter, *data):
     b = tree_model.get_value(iter, 0)
@@ -694,16 +696,6 @@ class Files(B8View):
     self.tree.connect('row-activated', self.on_row_activated)
     self.tree.connect('button-press-event', self.on_button_press_event)
     self.tree.set_activate_on_single_click(False)
-
-    #pixbuf = Gtk.IconTheme.get_default().load_icon('utilities-terminal',
-    #    Gtk.IconSize.SMALL_TOOBAR, 0)
-
-    #print([k for k in Gtk.IconTheme.get_default().list_icons() if 'terminal' in
-    #  k])
-
-    #w = Gtk.Image.new_from_icon_name('utilities-x-terminal',
-    #    Gtk.IconSize.LARGE_TOOLBAR)
-    #print(w)
 
 
     self.terminal_button = self.mini_button(
@@ -745,9 +737,9 @@ class Files(B8View):
     cell.set_property('icon_name', b.icon)
 
   def on_row_activated(self, w, path, column):
-    print('row-activated')
     giter = self.model.get_iter(path)
     f = self.model.get_value(giter, 0)
+    self.debug(f'row-activated {f}')
     if f.is_dir:
       self.browse(f.path)
     else:
@@ -755,11 +747,9 @@ class Files(B8View):
       self.b8.vim.view.grab_focus()
 
   def on_button_press_event(self, treeview, event):
-    print('button', event.button)
     if event.button != Gdk.BUTTON_SECONDARY:
       return
     item_spec = self.tree.get_path_at_pos(int(event.x), int(event.y))
-    print(item_spec)
     if item_spec is not None:
       # clicked on an actual cell
       path, col, rx, ry = item_spec
@@ -917,7 +907,7 @@ class Vim(B8Object):
     #self.cmd('nvim_command', ['vsplit'])
     
   def on_raw(self, channel, condition):
-    self.info('rcvd:raw data')
+    self.debug('received:raw data')
     while True:
       d = os.read(self.fd_out, 1024)
       self.unpacker.feed(d)
@@ -927,12 +917,12 @@ class Vim(B8Object):
       msg_type = msg[0]
 
       if msg_type == 1:
-        self.info(f'rcvd:reply {msg}')
+        self.debug(f'received:reply {msg}')
 
       elif msg_type == 2:
         msg_name = msg[1].decode('utf-8')
         msg_args = msg[2]
-        self.info(f'rcvd:notification "{msg_name}"')
+        self.debug(f'received:notification {msg_name}')
         fname = f'on_{msg_name}'
         f = getattr(self, fname)
         f(msg_args)
@@ -943,7 +933,7 @@ class Vim(B8Object):
 
   def cmd(self, name: str, args: []):
     msg = [0, self.command_id, name, args]
-    self.info(f'send:cmd:{msg}')
+    self.debug(f'send:cmd:{msg}')
     d = msgpack.dumps(msg)
     self.pipe_in.write(d)
     self.pipe_in.flush()
@@ -1020,27 +1010,27 @@ class Vim(B8Object):
 
 
   def on_hl_group_set(self, *args):
-    print('hl_group_set not used')
+    self.debug(f'redraw:hl_group_set (not used)')
       
   def on_grid_resize(self, gridargs):
     grid_id, cols, rows = gridargs
-    print('grid  resize', grid_id, cols, rows)
+    self.debug(f'redraw:grid_resize {grid_id} {cols} {rows}')
     self.grid = Grid(cols, rows)
     self.width = cols
     self.height = rows
 
   def on_grid_clear(self, *args):
-    print('grid clear', args)
+    self.debug(f'redraw:grid_clear')
 
   def on_busy_start(self, *args):
-    print('busy start', args)
+    self.debug('redraw:busy start')
 
   def on_busy_stop(self, *args):
-    print('busy stop', args)
+    self.debug('redraw:busy stop')
 
   def on_grid_cursor_goto(self, gridargs):
     grid_id, rows, cols = gridargs
-    print('grid  cursor goto', grid_id, cols, rows)
+    self.debug(f'redraw:grid_cursor_goto {cols} {rows}')
     self.cursor_x = cols
     self.cursor_y = rows
 
@@ -1057,14 +1047,14 @@ class Vim(B8Object):
       self.modes[m.name] = m
 
   def on_mode_change(self, modeargs):
+    self.debug('redraw:mode_change')
     mode_name = modeargs[0].decode('utf-8')
     mode_id = modeargs[1]
     self.current_mode = self.modes[mode_name]
 
-    print('mode change', mode_name, mode_id)
 
   def on_grid_line(self, *args):
-    print('grid_line')
+    self.debug('redraw:grid_line')
     for arg in args:
       row = arg[1]
       colstart = arg[2]
@@ -1118,11 +1108,11 @@ class Vim(B8Object):
 
 
   def on_msg_showmode(self, *args):
-    print('msgshowmode', args)
+    self.debug(f'msgshowmode {args}')
 
 
   def on_flush(self, *args):
-    print('flush')
+    self.debug('redraw:flush')
     if self.flush_callback:
       self.flush_callback()
 
@@ -1134,20 +1124,19 @@ ALT = Gdk.ModifierType.MOD1_MASK
 
 MODIFIERS = {'Shift_L', 'Shift_R', 'Control_L', 'Control_R', 'Alt_R', 'Alt_L'}
 
-class VimView:
+class VimView(B8View):
 
   button_pressed = None
   button_drag = None
 
-  def __init__(self, b8):
-    self.b8 = b8
-    self.vim = b8.vim
+  def init(self):
+    self.vim = self.b8.vim
     self.vim.flush_callback = self.queue_redraw
     self.drawing_area = Gtk.DrawingArea()
     self.view = self.drawing_area
     self.drawing_area.set_can_focus(True)
-    self.drawing_area.connect('draw', self._gtk_draw)
-    self.drawing_area.connect('realize', self._gtk_realize)
+    self.drawing_area.connect('draw', self.on_draw)
+    self.drawing_area.connect('realize', self.on_realize)
     self.drawing_area.connect('configure-event', self.on_configure_event)
     self.drawing_area.add_events(Gdk.EventMask.KEY_PRESS_MASK |
                                  Gdk.EventMask.BUTTON_PRESS_MASK |
@@ -1162,14 +1151,14 @@ class VimView:
     self.drawing_area.connect('focus-in-event', self.on_focus_in_event)
     self.drawing_area.connect('focus-out-event', self.on_focus_out_event)
     self.drawing_area.connect('scroll-event', self.on_scroll_event)
-
     self._cairo_surface = None
+    self.drawing_area
 
   def queue_redraw(self):
     self.drawing_area.queue_draw()
 
   def on_configure_event(self, w, event):
-    print('configure', w, event, event.height, event.width)
+    self.debug(f'configure-event')
 
     ims = cairo.ImageSurface(cairo.FORMAT_RGB24, 300, 300)
     cr = cairo.Context(ims)
@@ -1194,8 +1183,8 @@ class VimView:
       self.vim.start()
 
 
-  def _gtk_realize(self, w):
-    print('realize')
+  def on_realize(self, w):
+    self.debug('realize')
     content = cairo.CONTENT_COLOR
     gdkwin = self.drawing_area.get_window()
     self._cairo_surface = gdkwin.create_similar_surface(content,
@@ -1208,35 +1197,21 @@ class VimView:
     self.drawing_area.queue_draw()
     self.drawing_area.grab_focus()
 
-  def _gtk_draw(self, wid, cr):
+  def on_draw(self, wid, cr):
     if not self._cairo_surface:
       return
     if not self.vim.grid:
       return
-    #self._cairo_surface.flush()
-    #cr.save()
-    #cr.rectangle(0, 0, self.vim.width * self.cell_width, self.vim.height *
-    #    self.cell_height)
-    #cr.clip()
-    #cr.set_source_surface(self._cairo_surface, 0, 0)
-    #cr.paint()
-    #cr.restore()
 
     bg = self.vim.default_hl.background
     cr.set_source_rgb(bg.r, bg.g, bg.b)
     cr.paint()
     for (cy, row) in enumerate(self.vim.grid.cells):
       for (cx, cell) in enumerate(row):
-        # Draw the text
-        #x, y = self._get_coords(row, col)
         x = cx * self.cell_width
         y = cy * self.cell_height
-        #if cursor and self._insert_cursor:
-        #    cr.rectangle(x, y, self._cell_pixel_width / 4,
-        #                 self._cell_pixel_height)
-        #    cr.clip()
-        cr.move_to(x, y)
 
+        cr.move_to(x, y)
         bg = None
         if cell.hl is None:
           bg = self.vim.default_hl.background
@@ -1286,7 +1261,6 @@ class VimView:
           PangoCairo.update_layout(cr, self._pango_layout)
           PangoCairo.show_layout(cr, self._pango_layout)
           _, r = self._pango_layout.get_pixel_extents()
-        #cr.show_text(cell.text)
 
   def on_key_press_event(self, widget, event, *args):
     keyval = event.keyval
@@ -1305,10 +1279,8 @@ class VimView:
 
 
 
-    #input_str = key_name
     if key_name in KEY_TABLE:
       input_str = _stringify_key(KEY_TABLE[key_name], state)
-    #print(input_str)
     self.vim.nvim_input(input_str)
     return True
 
@@ -1360,11 +1332,11 @@ class VimView:
     self.vim.nvim_input(input_str)
 
   def on_focus_in_event(self, widget, event):
-    print('focus in')
+    self.debug('focus in')
     self.queue_redraw()
 
   def on_focus_out_event(self, widget, event):
-    print('focus out')
+    self.debug('focus out')
     self.queue_redraw()
     
 
@@ -1380,33 +1352,7 @@ def _stringify_key(key, state):
     return '<' + '-'.join(send) + '>'
 
 
-# Translation table for the names returned by Gdk.keyval_name that don't match
-# the corresponding nvim key names.
 KEY_TABLE = {
-    #'slash': '/',
-    #'backslash': '\\',
-    #'dead_circumflex': '^',
-    #'at': '@',
-    #'numbersign': '#',
-    #'dollar': '$',
-    #'percent': '%',
-    #'ampersand': '&',
-    #'asterisk': '*',
-    #'parenleft': '(',
-    #'parenright': ')',
-    #'underscore': '_',
-    #'plus': '+',
-    #'minus': '-',
-    #'bracketleft': '[',
-    #'bracketright': ']',
-    #'braceleft': '{',
-    #'braceright': '}',
-    #'dead_diaeresis': '"',
-    #'dead_acute': "'",
-    #'less': "<",
-    #'greater': ">",
-    #'comma': ",",
-    #'period': ".",
     'BackSpace': 'BS',
     'Return': 'CR',
     'Escape': 'Esc',
@@ -1420,6 +1366,209 @@ KEY_TABLE = {
     'Up': 'Up',
     'Down': 'Down',
 }
+
+TERMINAL_THEMES = {
+  "xubuntu_dark": {
+    "name": "xubuntu_dark",
+    "foreground": "#b7b7b7",
+    "background": "#131926",
+    "cursor": "#0f4999",
+    "activity": "#0f4999",
+    "palette": [
+      "#000000",
+      "#aa0000",
+      "#44aa44",
+      "#aa5500",
+      "#0039aa",
+      "#aa22aa",
+      "#1a92aa",
+      "#aaaaaa",
+      "#777777",
+      "#ff8787",
+      "#4ce64c",
+      "#ded82c",
+      "#295fcc",
+      "#cc58cc",
+      "#4ccce6",
+      "#ffffff"
+    ]
+  },
+  "solarized_dark": {
+    "name": "solarized_dark",
+    "foreground": "#839496",
+    "background": "#002b36",
+    "cursor": "#93a1a1",
+    "activity": "#dc322f",
+    "palette": [
+      "#073642",
+      "#dc322f",
+      "#859900",
+      "#b58900",
+      "#268bd2",
+      "#d33682",
+      "#2aa198",
+      "#eee8d5",
+      "#002b36",
+      "#cb4b16",
+      "#586e75",
+      "#657b83",
+      "#839496",
+      "#6c71c4",
+      "#93a1a1",
+      "#fdf6e3"
+    ]
+  },
+  "white_on_black": {
+    "name": "white_on_black",
+    "foreground": None,
+    "background": None,
+    "cursor": None,
+    "activity": None,
+    "palette": []
+  },
+  "black_on_white": {
+    "name": "black_on_white",
+    "foreground": "#000000",
+    "background": "#ffffff",
+    "cursor": None,
+    "activity": None,
+    "palette": []
+  },
+  "green_on_black": {
+    "name": "green_on_black",
+    "foreground": "#17f018",
+    "background": "#000000",
+    "cursor": None,
+    "activity": None,
+    "palette": []
+  },
+  "xubuntu_light": {
+    "name": "xubuntu_light",
+    "foreground": "#1f3566",
+    "background": "#f1f1f1",
+    "cursor": "#0f4999",
+    "activity": "#0f4999",
+    "palette": [
+      "#000000",
+      "#aa0000",
+      "#44aa44",
+      "#aa5500",
+      "#0039aa",
+      "#aa22aa",
+      "#1a92aa",
+      "#aaaaaa",
+      "#888888",
+      "#ff8787",
+      "#4ce64c",
+      "#ded82c",
+      "#295fcc",
+      "#cc58cc",
+      "#4ccce6",
+      "#ffffff"
+    ]
+  },
+  "tango": {
+    "name": "tango",
+    "foreground": None,
+    "background": None,
+    "cursor": None,
+    "activity": None,
+    "palette": [
+      "#000000",
+      "#cc0000",
+      "#4e9a06",
+      "#c4a000",
+      "#3465a4",
+      "#75507b",
+      "#06989a",
+      "#d3d7cf",
+      "#555753",
+      "#ef2929",
+      "#8ae234",
+      "#fce94f",
+      "#739fcf",
+      "#ad7fa8",
+      "#34e2e2",
+      "#eeeeec"
+    ]
+  },
+  "solarized_light": {
+    "name": "solarized_light",
+    "foreground": "#073642",
+    "background": "#fdf6e3",
+    "cursor": "#073642",
+    "activity": "#dc322f",
+    "palette": [
+      "#073642",
+      "#dc322f",
+      "#859900",
+      "#b58900",
+      "#268bd2",
+      "#d33682",
+      "#2aa198",
+      "#eee8d5",
+      "#002b36",
+      "#cb4b16",
+      "#586e75",
+      "#657b83",
+      "#839496",
+      "#6c71c4",
+      "#93a1a1",
+      "#fdf6e3"
+    ]
+  },
+  "dark_pastels": {
+    "name": "dark_pastels",
+    "foreground": "#dcdcdc",
+    "background": "#2c2c2c",
+    "cursor": "#dcdcdc",
+    "activity": None,
+    "palette": [
+      "#3f3f3f",
+      "#705050",
+      "#60b48a",
+      "#dfaf8f",
+      "#9ab8d7",
+      "#dc8cc3",
+      "#8cd0d3",
+      "#dcdcdc",
+      "#709080",
+      "#dca3a3",
+      "#72d5a3",
+      "#f0dfaf",
+      "#94bff3",
+      "#ec93d3",
+      "#93e0e3",
+      "#ffffff"
+    ]
+  },
+  "xterm": {
+    "name": "xterm",
+    "foreground": "#000000",
+    "background": "#ffffff",
+    "cursor": None,
+    "activity": None,
+    "palette": [
+      "#000000",
+      "#cd0000",
+      "#00cd00",
+      "#cdcd00",
+      "#0000cd",
+      "#cd00cd",
+      "#00cdcd",
+      "#e5e5e5",
+      "#7f7f7f",
+      "#ff0000",
+      "#00ff00",
+      "#ffff00",
+      "#5c5cff",
+      "#ff00ff",
+      "#00ffff",
+      "#ffffff"
+    ]
+  }
+}
+
 
 def main():
   b8 = B8()
