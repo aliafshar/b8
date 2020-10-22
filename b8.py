@@ -1151,12 +1151,7 @@ class Vim(B8Object):
       self.flush_callback()
 
 
-SHIFT = Gdk.ModifierType.SHIFT_MASK
-CTRL = Gdk.ModifierType.CONTROL_MASK
-ALT = Gdk.ModifierType.MOD1_MASK
 
-
-MODIFIERS = {'Shift_L', 'Shift_R', 'Control_L', 'Control_R', 'Alt_R', 'Alt_L'}
 
 class VimView(B8View):
 
@@ -1297,24 +1292,31 @@ class VimView(B8View):
           _, r = self._pango_layout.get_pixel_extents()
 
   def on_key_press_event(self, widget, event, *args):
-    keyval = event.keyval
-    state = event.state
-    if Gdk.keyval_name(event.keyval) in MODIFIERS:
-        # We don't need to track the state of modifier bits
-        return
-    # translate keyval to nvim key
-    key_name = Gdk.keyval_name(keyval)
-    if key_name.startswith('KP_'):
-        key_name = key_name[3:]
-    #input_str = _stringify_key(KEY_TABLE.get(key_name, key_name), state)
-    #input_str = KEY_TABLE.get(key_name, key_name)
+    key_name = Gdk.keyval_name(event.keyval)
+    # Fail fast on a known modifier
+    if key_name in MODIFIER_NAMES:
+      return
+    utf8 = chr(Gdk.keyval_to_unicode(event.keyval))
+    # Default to the character
+    input_str = utf8
+    # Known named keys
+    if key_name in KEY_NAMES:
+      input_str = KEY_NAMES[key_name]
+    # Convert to <> format
+    needs_stringify = (
+      (key_name in KEY_NAMES) |
+      event.state & Gdk.ModifierType.CONTROL_MASK |
+      event.state & Gdk.ModifierType.MOD1_MASK
+    )
+    if needs_stringify:
+      input_str = self.key_input(input_str, event.state)
 
-    input_str = chr(Gdk.keyval_to_unicode(keyval))
 
+    self.debug(f'keypress chr:{input_str} '
+               f'utf8:{repr(utf8)} '
+               f'name:{key_name} '
+               f'state:{event.state}')
 
-
-    if key_name in KEY_TABLE:
-      input_str = _stringify_key(KEY_TABLE[key_name], state)
     self.vim.nvim_input(input_str)
     return True
 
@@ -1330,7 +1332,7 @@ class VimView(B8View):
         button = 'Right'
     col = int(math.floor(event.x / self.cell_width))
     row = int(math.floor(event.y / self.cell_height))
-    input_str = _stringify_key(button + 'Mouse', event.state)
+    input_str = self.key_input(button + 'Mouse', event.state)
     input_str += '<{0},{1}>'.format(col, row)
     self.vim.nvim_input(input_str)
     self.button_pressed = button
@@ -1348,7 +1350,7 @@ class VimView(B8View):
       self.button_drag = True
     col = int(math.floor(event.x / self.cell_width))
     row = int(math.floor(event.y / self.cell_height))
-    input_str = _stringify_key(self.button_pressed + 'Drag', event.state)
+    input_str = self.key_input(self.button_pressed + 'Drag', event.state)
     input_str += '<{0},{1}>'.format(col, row)
     self.vim.nvim_input(input_str)
 
@@ -1361,7 +1363,7 @@ class VimView(B8View):
         key = 'ScrollWheelDown'
     else:
         return
-    input_str = _stringify_key(key, event.state)
+    input_str = self.key_input(key, event.state)
     input_str += '<{0},{1}>'.format(col, row)
     self.vim.nvim_input(input_str)
 
@@ -1372,9 +1374,21 @@ class VimView(B8View):
   def on_focus_out_event(self, widget, event):
     self.debug('focus out')
     self.queue_redraw()
+
+  def key_input(self, input_str, state):
+    out = []
+    if state & Gdk.ModifierType.SHIFT_MASK:
+      out.append('S')
+    if state & Gdk.ModifierType.CONTROL_MASK:
+      out.append('C')
+    if state & Gdk.ModifierType.MOD1_MASK:
+      out.append('A')
+    out.append(input_str)
+    return f'<{"-".join(out)}>'
+
     
 
-def _stringify_key(key, state):
+def _stringify_keiy(key, state):
     send = []
     if state & SHIFT:
         send.append('S')
@@ -1386,7 +1400,16 @@ def _stringify_key(key, state):
     return '<' + '-'.join(send) + '>'
 
 
-KEY_TABLE = {
+MODIFIER_NAMES = {
+    'Shift_L',
+    'Shift_R',
+    'Control_L',
+    'Control_R',
+    'Alt_R',
+    'Alt_L'
+}
+
+KEY_NAMES = {
     'BackSpace': 'BS',
     'Return': 'CR',
     'Escape': 'Esc',
