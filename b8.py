@@ -886,7 +886,7 @@ class Files(B8View):
 
   def on_refresh_button_clicked(self, w):
     self.debug('refresh button clicked')
-    self.browse(self.current_path)
+    self.browse(self.current_path, refresh=True)
 
   def on_terminal_button_clicked(self, w):
     self.debug('terminal button clicked')
