@@ -6,6 +6,21 @@ Bominade is the successor to a8 and PIDA. It is an extremely light-weight IDE
 based on NeoVim, a file browser and a terminal emulator. It is currently in
 heavy development.
 
+## Features
+
+* NeoVim - that's right, use all your Vim and NeoVim plugins. The NeoVim integration uses LineGrid and renders using Cairo. It's pretty fast and comparable with Vim-gtk
+* Proper terminal emulator - this has real PTY support and uses VTE, the backend to gnome-terminal and xfce4-terminal.
+* File manager with Git integration - see the statuses of your files directly in the file manager
+* Open files in the terminal emulator or file browser just by clicking on them
+* Sync terminal emulator working directory with the file manager to auto-browse when you cd
+* Terminal themes - love solarized-dark? Great, use it.
+* Vim Buffer list - literally the only missing thing from Vim and we provide a nice way to view the path name and the parent directory
+* Works on Linux - this thing hasn't been tested on other platforms where it probably works, but we care about Linux
+
+## Obligatory screenshot
+
+This is what we mean...
+
 ![Bominade screenshot](tools/screenshot.png)
 
 ## Getting started
@@ -34,4 +49,10 @@ $ python3 b8.py
 
 Set up your NeoVim however you like it. Yummy!
 
-Nothing yet for terminals, but coming soon. I'm sorry.
+Edit `~/.config/b8/b8rc` which is a standard ini file.
+```
+[terminal]
+theme = solarized_dark
+```
+
+There are other themes: tango, dark_pastels, green_on_black and others. I should list them.
