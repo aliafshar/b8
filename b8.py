@@ -21,6 +21,8 @@ import msgpack
 class B8Object:
   """Base class for all B8-aware instances. I'm lazy. Welcome."""
 
+  log_level = None
+
   def __init__(self, b8):
     self.b8 = b8
     self.init()
@@ -37,8 +39,8 @@ class B8Object:
 
   def debug(self, msg):
     """Debug a message."""
-    return
-    self.log('D', msg)
+    if self.b8.log_level == 'debug':
+      self.log('D', msg)
 
   def info(self, msg):
     """Info a message."""
@@ -95,10 +97,13 @@ class B8:
   No doubt there are circular references and leaks everywhere.
   """
 
+  log_level = None
+
   def __init__(self):
     self.arguments = Arguments(self)
     self.instance = Instance(self)
     self.config = Config(self)
+    self.log_level = self.config.get('logging', 'level')
     if self.arguments.args.remote:
       self.running = False
       self.remote = Remote(self)
@@ -212,8 +217,12 @@ class Instance(B8Object):
 class Config(B8Object):
 
   default_config = {
+      'logging': {
+        'level': 'info',  
+      },
       'terminal': {
-        'theme':'xubuntu-dark'
+        'theme':'b8',
+        'font': 'Monospace 13',
       }
   }
 
@@ -401,6 +410,9 @@ class TerminalTheme(B8Object):
       self.error(f'theme {theme_name} does not exist, using default')
       raw_theme = self.default_theme
     self.parse(raw_theme)
+    self.font_name = self.b8.config.get('terminal', 'font')
+    print(self.font_name)
+    self.font_desc = Pango.font_description_from_string(self.font_name)
 
   def parse(self, theme):
     self.foreground = Gdk.RGBA()
@@ -482,6 +494,7 @@ class TerminalView(B8View):
     self.term.set_colors(theme.foreground, theme.background, theme.palette)
     self.term.set_color_cursor(theme.cursor)
     self.term.set_color_cursor_foreground(theme.cursor)
+    self.term.set_font(theme.font_desc)
     return widget
 
   def connect_ui(self):
@@ -959,6 +972,8 @@ class Vim(B8Object):
   height = 0
   started = False
   current_buffer = None
+  cursor_x = -1
+  cursor_y = -1
 
   def init(self):
     self.grid = None
@@ -974,7 +989,7 @@ class Vim(B8Object):
 
     self.started = True
 
-    self.proc = subprocess.Popen(['/usr/bin/nvim', '--embed'],
+    self.proc = subprocess.Popen(['nvim', '--embed'],
         stdout=subprocess.PIPE,
         stdin=subprocess.PIPE,
         stderr=subprocess.PIPE)
@@ -1074,6 +1089,7 @@ class Vim(B8Object):
 
     print('buffer', action, buffer_number, buffer_path)
 
+
   def on_redraw(self, opts):
     for opt in opts:
       msg_name = opt[0].decode('utf-8')
@@ -1091,6 +1107,9 @@ class Vim(B8Object):
       if isinstance(bv, bytes):
         v = bv.decode('utf-8')
       self.options[k] = v
+
+  def on_update_menu(self, *args):
+    self.debug(f'redraw:update_menu {args}')
 
   def on_default_colors_set(self, hl, *args):
     fg, bg, special, tfg, tbg = hl
@@ -1279,6 +1298,7 @@ class VimView(B8View):
     else:
       self.vim.start()
 
+  
 
   def on_realize(self, w):
     self.debug('realize')
@@ -1296,8 +1316,10 @@ class VimView(B8View):
 
   def on_draw(self, wid, cr):
     if not self._cairo_surface:
+      self.debug('draw:no surface')
       return
     if not self.vim.grid:
+      print('draw:no grid')
       return
 
     bg = self.vim.default_hl.background
