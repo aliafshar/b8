@@ -920,11 +920,25 @@ class Grid:
     self.cells = [[Cell() for col in range(self.width)] for col in
         range(self.height)]
 
+  def clone(self):
+    g = Grid(self.width, self.height)
+    for (row, orow) in zip(self.cells, g.cells):
+      for (cell, ocell) in zip(row, orow):
+        cell.copy_to(ocell)
+    return g
+
 
 class Cell:
   """Single cell within a NeoVim grid"""
   text = ''  
   hl = None
+
+  def copy_to(self, c):
+    c.text = self.text
+    c.hl = self.hl
+
+  def is_same(self, other):
+    return self.text == other.text and self.hl is other.hl
 
 
 class ModeInfo:
@@ -1244,6 +1258,8 @@ class VimView(B8View):
 
   button_pressed = None
   button_drag = None
+  old_grid = None
+  old_surface = None
 
   def init(self):
     self.vim = self.b8.vim
@@ -1302,22 +1318,20 @@ class VimView(B8View):
 
   def on_realize(self, w):
     self.debug('realize')
-    content = cairo.CONTENT_COLOR
-    gdkwin = self.drawing_area.get_window()
-    self._cairo_surface = gdkwin.create_similar_surface(content,
-                                                        self.cell_width,
-                                                        self.cell_height)
-    self._cairo_context = cairo.Context(self._cairo_surface)
-    self._pango_layout = PangoCairo.create_layout(self._cairo_context)
+    #content = cairo.CONTENT_COLOR
+    #gdkwin = self.drawing_area.get_window()
+    #sfc = gdkwin.create_similar_surface(content,
+     #                                                   gdkwin.get_width(),
+     #                                                   gdkwin.get_height())
+    #self._cairo_context = cairo.Context(sfc)
+    #self._pango_layout = PangoCairo.create_layout(self._cairo_context)
+    self._pango_layout = PangoCairo.create_layout(w.get_window().cairo_create())
     self._pango_layout.set_alignment(Pango.Alignment.LEFT)
     self._pango_layout.set_font_description(self._font)
     self.drawing_area.queue_draw()
     self.drawing_area.grab_focus()
 
   def on_draw(self, wid, cr):
-    if not self._cairo_surface:
-      self.debug('draw:no surface')
-      return
     if not self.vim.grid:
       print('draw:no grid')
       return
@@ -1327,6 +1341,10 @@ class VimView(B8View):
     cr.paint()
     for (cy, row) in enumerate(self.vim.grid.cells):
       for (cx, cell) in enumerate(row):
+        if self.old_grid and cell.is_same(self.old_grid.cells[cy][cx]):
+          #print('same', cell, self.old_grid.cells[cy][cx])
+          #continue
+          pass
         x = cx * self.cell_width
         y = cy * self.cell_height
 
@@ -1380,6 +1398,8 @@ class VimView(B8View):
           PangoCairo.update_layout(cr, self._pango_layout)
           PangoCairo.show_layout(cr, self._pango_layout)
           _, r = self._pango_layout.get_pixel_extents()
+    print('set old grid')
+    self.old_grid = self.vim.grid.clone()
 
   def on_key_press_event(self, widget, event, *args):
     key_name = Gdk.keyval_name(event.keyval)
