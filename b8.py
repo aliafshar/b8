@@ -33,7 +33,10 @@ class B8Object:
   
   def log(self, level, msg):
     """Because who can ever work out logging."""
-    print(f'{level}:{self.__class__.__name__}:{msg}')
+    logmsg = f'{level}:{self.__class__.__name__}:{msg}'
+    if self.b8.terminals:
+      self.b8.terminals.logger.msg(logmsg)
+    print(logmsg)
 
   def debug(self, msg):
     """Debug a message."""
@@ -96,6 +99,7 @@ class B8:
   """
 
   log_level = None
+  terminals = None
 
   def __init__(self):
     self.arguments = Arguments(self)
@@ -108,10 +112,10 @@ class B8:
       self.running = True
       self.ipc = Ipc(self)
       self.contexts = Contexts(self)
+      self.terminals = Terminals(self)
       self.vim = Vim(self)
       self.buffers = Buffers(self)
       self.files = Files(self)
-      self.terminals = Terminals(self)
       self.ui = B8Window(self)
       self.show_shell(os.getcwd())
 
@@ -304,13 +308,18 @@ class Action:
     return Gtk.Image.new_from_icon_name(self.icon_name, self.icon_size)
 
   def label(self):
-    return Gtk.Label(self.label_text)
+    l = Gtk.Label()
+    l.set_label(self.label_text)
+    return l
 
   def menuitem(self):
-    item = Gtk.ImageMenuItem()
-    item.set_label(self.label_text)
-    item.set_image(self.icon())
-    item.set_always_show_image(True)
+    item = Gtk.MenuItem()
+    hb = Gtk.HBox()
+    hb.pack_start(self.icon(), expand=False, fill=False, padding=0)
+    l = Gtk.Label()
+    l.set_label(self.label_text)
+    hb.pack_start(l, expand=True, fill=False, padding=0)
+    item.add(hb)
     return item
 
 
@@ -324,7 +333,7 @@ class Contexts(B8Object):
 
   BUFFER = 'buffer'
   FILE = 'file'
-  DIRECTORY = 'firectory'
+  DIRECTORY = 'directory'
 
   actions = {
       FILE: [
@@ -350,10 +359,13 @@ class Contexts(B8Object):
   }
 
   ereg_exprs = {
-      'file': (
+      'file2': (
           r'"([^"]|\\")+"|' + \
           r"'[^']+'|" + \
           r'(\\ |\\\(|\\\)|\\=|[^]\[[:space:]"\':\$()=])+'
+      ),
+      'file': (
+          r'(\H+)'
       )
   }
 
@@ -439,7 +451,14 @@ class Terminals(B8View):
     self.book.set_scrollable(True)
     widget.pack_start(self.book, True, True, 0)
     self.theme = TerminalTheme(self.b8)
+    self.logger = LogView(self.b8)
+    self.append(self.logger)
     return widget
+
+  def append(self, w):
+    pagenum = self.book.append_page(w.widget, w.create_tab_label())
+    self.book.show_all()
+    self.book.set_current_page(pagenum)
 
   def create(self, wd):
     t = TerminalView(self.b8)
@@ -447,6 +466,28 @@ class Terminals(B8View):
     self.book.show_all()
     self.book.set_current_page(pagenum)
     t.start(wd)
+
+
+class LogView(B8View):
+
+  def create_ui(self):
+    self.term = Vte.Terminal()
+    theme = TerminalTheme(self.b8)
+    self.term.set_colors(theme.foreground, theme.background, theme.palette)
+    self.term.set_color_cursor(theme.cursor)
+    self.term.set_color_cursor_foreground(theme.cursor)
+    self.term.set_font(theme.font_desc)
+    self.term.set_scroll_on_output(True)
+    return self.term
+
+  def msg(self, s):
+    self.term.feed(s.encode('utf-8') + b'\r\n')
+
+  def create_tab_label(self):
+    self.label = Gtk.Label()
+    self.label.set_label('log')
+    self.label.set_width_chars(8)
+    return self.label
 
 
 
@@ -508,9 +549,10 @@ class TerminalView(B8View):
 
   def on_child_exited(self, ti, status):
     self.started = False
-    print('exited')
     self.pid = None
-    self.term.feed(b'\x1b[0;1;34mExited, status: \x1b[0;1;31m{status}, \x1b[0mpress enter to close')
+    self.term.feed(f'\x1b[0;1;34mExited, '
+                   f'status: \x1b[0;1;31m{status} \r\n'
+                   f'\x1b[0mpress enter to close'.encode('utf-8'))
     self.term.connect('key-press-event', self.on_keypress_after_exit)
 
   def on_keypress_after_exit(self, terminal, event):
@@ -591,16 +633,21 @@ class TerminalView(B8View):
     return path
 
   def on_button_press_event(self, w, event):
-    selected = None
     action = None
+    selected = None
     m, tag = w.match_check_event(event)
     if not m:
       # Fail fast if not matching.
       return
+    m = m.strip()
     if tag == 0:
-      path = os.path.join(self.child_cwd, m)
-      if os.path.exists(path):
-        selected = path
+      if not m.startswith('/'):
+        m = os.path.join(self.child_cwd, m)
+      if os.path.exists(m):
+        selected = m
+
+    if not selected:
+      return
 
     if event.button == Gdk.BUTTON_PRIMARY:
       self.b8.show_path(selected)
