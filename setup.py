@@ -8,11 +8,15 @@ from setuptools import setup
 with open('README.md') as f:
   long_description = f.read()
 
-with open('b8.py') as f:
-  for line in f:
-    if line.startswith('VERSION'):
-      version = line.strip().split(' ')[-1][1:-1]
-      break
+with open('tools/VERSION') as f:
+  v = f.read().strip()
+  print(v)
+  a, b, c = v.split('.')
+  minor = str(int(c) + 1)
+  version = f'{a}.{b}.{minor}'
+
+with open('tools/VERSION', 'w') as f:
+  f.write(version)
 
 
 setup(    

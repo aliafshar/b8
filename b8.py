@@ -18,9 +18,6 @@ import cairo
 import msgpack
 
 
-VERSION = '0.0.7'
-
-
 class B8Object:
   """Base class for all B8-aware instances. I'm lazy. Welcome."""
 
