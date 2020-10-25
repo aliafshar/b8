@@ -443,7 +443,6 @@ class TerminalTheme(B8Object):
     
 
 
-
 class Terminals(B8View):
 
   def create_ui(self):
@@ -1235,7 +1234,7 @@ class Vim(B8Object):
         self.debug(f'received:reply {msg}')
 
       elif msg_type == 2:
-        msg_name = msg[1].decode('utf-8')
+        msg_name = msg[1]
         msg_args = msg[2]
         self.debug(f'received:notification {msg_name}')
         fname = f'on_{msg_name}'
@@ -1274,9 +1273,9 @@ class Vim(B8Object):
 
 
   def on_buffers(self, opts):
-    action = opts[0].decode('utf-8')
+    action = opts[0]
     buffer_number = int(opts[1])
-    buffer_path = opts[2].decode('utf-8')
+    buffer_path = opts[2]
     self.debug(f'buffers {action} {buffer_number} {buffer_path}')
     if action == 'enter':
       if not buffer_path:
@@ -1290,7 +1289,7 @@ class Vim(B8Object):
 
   def on_redraw(self, opts):
     for opt in opts:
-      msg_name = opt[0].decode('utf-8')
+      msg_name = opt[0]
       msg_args = opt[1:]
       fname = f'on_{msg_name}'
       #print(msg)
@@ -1302,11 +1301,7 @@ class Vim(B8Object):
 
   def on_option_set(self, *args):
     self.options = {}
-    for bk, bv in args:
-      k = bk.decode('utf-8')
-      v = bv
-      if isinstance(bv, bytes):
-        v = bv.decode('utf-8')
+    for k, v in args:
       self.options[k] = v
 
   def on_update_menu(self, *args):
@@ -1323,9 +1318,8 @@ class Vim(B8Object):
   def on_hl_attr_define(self, *args):
     for hl_id, cs, tcs, empty in args:
       c = self.highlights[hl_id] = Highlight()
-      for bk in cs:
-        k = bk.decode('utf-8')
-        v = cs[bk]
+      for k in cs:
+        v = cs[k]
         if isinstance(v, int):
           v = Color(v)
         setattr(c, k, v)
@@ -1363,17 +1357,14 @@ class Vim(B8Object):
     modes = args[0][1]
     for mode in modes:
       m = ModeInfo()
-      for bk in mode:
-        k = bk.decode('utf-8')
-        bv = v = mode[bk]
-        if isinstance(bv, bytes):
-          v = bv.decode('utf-8')
+      for k in mode:
+        v = mode[k]
         setattr(m, k, v)
       self.modes[m.name] = m
 
   def on_mode_change(self, modeargs):
     self.debug('redraw:mode_change')
-    mode_name = modeargs[0].decode('utf-8')
+    mode_name = modeargs[0]
     mode_id = modeargs[1]
     self.current_mode = self.modes[mode_name]
 
@@ -1387,7 +1378,7 @@ class Vim(B8Object):
 
       last_hl = -1
       for cell in cells:
-        text = cell[0].decode('utf-8')
+        text = cell[0]
         hl = last_hl
         repeat = 1
         if len(cell) > 1:
