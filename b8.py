@@ -21,8 +21,6 @@ import msgpack
 class B8Object:
   """Base class for all B8-aware instances. I'm lazy. Welcome."""
 
-  log_level = None
-
   def __init__(self, b8):
     self.b8 = b8
     self.init()
@@ -39,7 +37,7 @@ class B8Object:
 
   def debug(self, msg):
     """Debug a message."""
-    if self.b8.log_level == 'debug':
+    if self.b8.arguments.args.debug:
       self.log('D', msg)
 
   def info(self, msg):
@@ -103,7 +101,6 @@ class B8:
     self.arguments = Arguments(self)
     self.instance = Instance(self)
     self.config = Config(self)
-    self.log_level = self.config.get('logging', 'level')
     if self.arguments.args.remote:
       self.running = False
       self.remote = Remote(self)
@@ -123,7 +120,7 @@ class B8:
       self.files.browse(path)
     else:
       self.vim.nvim_open_buffer(path)
-      self.vim.view.grab_focus()
+      self.ui.vimview.drawing_area.grab_focus()
 
   def show_shell(self, path):
     self.terminals.create(path)
@@ -187,6 +184,7 @@ class Arguments(B8Object):
   def init(self):
     parser = argparse.ArgumentParser('bominade IDE')
     parser.add_argument('--remote')
+    parser.add_argument('--debug', action='store_true')
     self.args = parser.parse_args()
 
 
@@ -361,10 +359,9 @@ class Contexts(B8Object):
     pass
 
   def regex(self, name):
-    return GLib.Regex(self.ereg_exprs[name], GLib.RegexCompileFlags.MULTILINE, 0) 
-
-  def on_open(self, path):
-    print('open')
+    #https://github.com/luvit/pcre2/blob/master/src/pcre2.h.in
+    PCRE2_MULTILINE = 0x00000400
+    return Vte.Regex.new_for_match(self.ereg_exprs[name], -1, PCRE2_MULTILINE)
 
   def menu(self, name, data):
     menu = Gtk.Menu()
@@ -411,7 +408,6 @@ class TerminalTheme(B8Object):
       raw_theme = self.default_theme
     self.parse(raw_theme)
     self.font_name = self.b8.config.get('terminal', 'font')
-    print(self.font_name)
     self.font_desc = Pango.font_description_from_string(self.font_name)
 
   def parse(self, theme):
@@ -459,8 +455,8 @@ class TerminalView(B8View):
 
   def create_ui(self):
     self.term = Vte.Terminal()
-    self.term.match_add_gregex(self.b8.contexts.regex('file'), 0)
-    self.term.match_set_cursor(0, Gdk.Cursor(Gdk.CursorType.HAND2))
+    self.term.match_add_regex(self.b8.contexts.regex('file'), 0)
+    self.term.match_set_cursor_name(0, 'pointer')
     self.term.connect('button-press-event', self.on_button_press_event)
     widget = Gtk.HBox()
     tools = Gtk.VBox()
@@ -559,7 +555,6 @@ class TerminalView(B8View):
     return path
 
   def on_button_press_event(self, w, event):
-    print(event.button)
     selected = None
     action = None
     m, tag = w.match_check_event(event)
@@ -580,9 +575,6 @@ class TerminalView(B8View):
         action = 'file'
       menu = self.b8.contexts.menu(action, selected)
       menu.popup(None, None, None, None, event.button, event.time)
-
-  def on_file_menu_activated(self, w, action, data):
-    print (w, action, data)
 
   def on_link_button_clicked(self, w):
     self.linked_browser = w.get_active()
@@ -814,11 +806,7 @@ class Files(B8View):
     giter = self.model.get_iter(path)
     f = self.model.get_value(giter, 0)
     self.debug(f'row-activated {f}')
-    if f.is_dir:
-      self.browse(f.path)
-    else:
-      self.b8.vim.nvim_open_buffer(f.path)
-      self.b8.vim.view.grab_focus()
+    self.b8.show_path(f.path, is_dir=f.is_dir)
 
   def on_button_press_event(self, treeview, event):
     if event.button != Gdk.BUTTON_SECONDARY:
@@ -1073,6 +1061,9 @@ class Vim(B8Object):
   def nvim_input(self, keys):
     self.cmd('nvim_input', [keys])
 
+  def nvim_input_mouse(self, button, action, modifier, row, col):
+    self.cmd('nvim_input_mouse', [button, action, modifier, 0, row, col])
+
   def nvim_resize(self):
     self.cmd('nvim_ui_try_resize', [self.width, self.height]);
 
@@ -1090,18 +1081,15 @@ class Vim(B8Object):
     action = opts[0].decode('utf-8')
     buffer_number = int(opts[1])
     buffer_path = opts[2].decode('utf-8')
+    self.debug(f'buffers {action} {buffer_number} {buffer_path}')
     if action == 'enter':
       if not buffer_path:
         return
       self.b8.buffers.change(buffer_path, buffer_number)
     elif action == 'delete':
-      print(action, buffer_path)
       if not buffer_path:
         return
       self.b8.buffers.remove(buffer_path, buffer_number)
-      
-
-    print('buffer', action, buffer_number, buffer_path)
 
 
   def on_redraw(self, opts):
@@ -1110,8 +1098,11 @@ class Vim(B8Object):
       msg_args = opt[1:]
       fname = f'on_{msg_name}'
       #print(msg)
-      f = getattr(self, fname)
-      f(*msg_args)
+      f = getattr(self, fname, None)
+      if f:
+        f(*msg_args)
+      else:
+        self.error(f'missing function {fname}')
 
   def on_option_set(self, *args):
     self.options = {}
@@ -1169,6 +1160,9 @@ class Vim(B8Object):
     self.cursor_x = cols
     self.cursor_y = rows
 
+  def on_mouse_on(self, *args):
+    """Mouse was put on, we ignore this. Leave it on!"""
+
   def on_mode_info_set(self, *args):
     modes = args[0][1]
     for mode in modes:
@@ -1211,8 +1205,6 @@ class Vim(B8Object):
           c.text = text
           c.hl = self.highlights.get(hl, self.default_hl)
           colstart += 1;
-    #for col in self.grid.cells:
-    #  print(''.join([c.text for c in col]))
 
   def on_grid_scroll(self, scrollargs):
     grid_id, top, bottom, left, right, rows, cols = scrollargs
@@ -1258,6 +1250,8 @@ class VimView(B8View):
 
   button_pressed = None
   button_drag = None
+
+  attempt_optimize = False
   old_grid = None
   old_surface = None
 
@@ -1270,6 +1264,7 @@ class VimView(B8View):
     self.drawing_area.connect('draw', self.on_draw)
     self.drawing_area.connect('realize', self.on_realize)
     self.drawing_area.connect('configure-event', self.on_configure_event)
+    self.drawing_area.connect('size-allocate', self.on_size_allocate)
     self.drawing_area.add_events(Gdk.EventMask.KEY_PRESS_MASK |
                                  Gdk.EventMask.BUTTON_PRESS_MASK |
                                  Gdk.EventMask.BUTTON_RELEASE_MASK |
@@ -1294,7 +1289,7 @@ class VimView(B8View):
 
     ims = cairo.ImageSurface(cairo.FORMAT_RGB24, 300, 300)
     cr = cairo.Context(ims)
-    self._font = Pango.font_description_from_string('Liberation Mono 11')
+    self._font = Pango.font_description_from_string('Liberation Mono 12')
     layout = PangoCairo.create_layout(cr)
     layout.set_font_description(self._font)
     layout.set_alignment(Pango.Alignment.LEFT)
@@ -1306,6 +1301,11 @@ class VimView(B8View):
 
     rows = event.height / self.cell_height
     cols = event.width / self.cell_width
+
+    self.draw_width = event.width
+    self.draw_height = event.height
+    self.draw_x = event.x
+    self.draw_y = event.y
     self.vim.width = int(cols)
     self.vim.height = int(rows)
 
@@ -1314,7 +1314,9 @@ class VimView(B8View):
     else:
       self.vim.start()
 
-  
+  def on_size_allocate(self, w, allocation):
+    print('size_allocate', allocation.x, allocation.y, allocation.width,
+        allocation.height)
 
   def on_realize(self, w):
     self.debug('realize')
@@ -1331,20 +1333,29 @@ class VimView(B8View):
     self.drawing_area.queue_draw()
     self.drawing_area.grab_focus()
 
-  def on_draw(self, wid, cr):
+  def on_draw(self, w, cr):
     if not self.vim.grid:
-      print('draw:no grid')
       return
 
-    bg = self.vim.default_hl.background
-    cr.set_source_rgb(bg.r, bg.g, bg.b)
-    cr.paint()
+    w.get_window().freeze_updates()
+
+    if self.attempt_optimize and self.old_surface:
+      cr.move_to(0, 0)
+      cr.set_source_surface(self.old_surface)
+      cr.rectangle(0, 0, self.draw_width, self.draw_height)
+      cr.fill()
+    else:
+      bg = self.vim.default_hl.background
+      cr.set_source_rgb(bg.r, bg.g, bg.b)
+      cr.paint()
     for (cy, row) in enumerate(self.vim.grid.cells):
       for (cx, cell) in enumerate(row):
-        if self.old_grid and cell.is_same(self.old_grid.cells[cy][cx]):
-          #print('same', cell, self.old_grid.cells[cy][cx])
-          #continue
-          pass
+
+        if self.attempt_optimize and self.old_grid:
+          old_cell = self.old_grid.cells[cy][cx]
+          if cell.text == old_cell.text and cell.hl is old_cell.hl:
+            continue
+
         x = cx * self.cell_width
         y = cy * self.cell_height
 
@@ -1370,9 +1381,10 @@ class VimView(B8View):
           fg, bg = bg, fg
 
 
-        cr.set_source_rgb(bg.r, bg.g, bg.b)
-        cr.rectangle(x, y, self.cell_width, self.cell_height)
-        cr.fill()
+        if bg is not self.vim.default_hl.background:
+          cr.set_source_rgb(bg.r, bg.g, bg.b)
+          cr.rectangle(x, y, self.cell_width, self.cell_height)
+          cr.fill()
 
         if cx == self.vim.cursor_x and cy == self.vim.cursor_y:
           cursorColor = self.vim.default_hl.foreground
@@ -1398,8 +1410,20 @@ class VimView(B8View):
           PangoCairo.update_layout(cr, self._pango_layout)
           PangoCairo.show_layout(cr, self._pango_layout)
           _, r = self._pango_layout.get_pixel_extents()
-    print('set old grid')
-    self.old_grid = self.vim.grid.clone()
+
+
+    w.get_window().thaw_updates()
+
+    if self.attempt_optimize:
+      sfc = cr.get_target()
+      self.old_surface =  sfc.create_similar(cairo.CONTENT_COLOR, self.draw_width,
+          self.draw_height)
+      ocr = cairo.Context(self.old_surface)
+      ocr.set_source_surface(sfc, sfc.get_width() - self.draw_width, 0)
+      ocr.move_to(0, 0)
+      ocr.rectangle(0, 0, self.draw_width, self.draw_height)
+      ocr.fill()
+      self.old_grid = self.vim.grid.clone()
 
   def on_key_press_event(self, widget, event, *args):
     key_name = Gdk.keyval_name(event.keyval)
@@ -1427,6 +1451,8 @@ class VimView(B8View):
                f'name:{key_name} '
                f'state:{event.state}')
 
+    if input_str == '\x00':
+      self.error(f'empty string {key_name}')
     self.vim.nvim_input(input_str)
     return True
 
@@ -1434,17 +1460,14 @@ class VimView(B8View):
   def on_button_press_event(self, widget, event, *args):
     self.drawing_area.grab_focus()
     if event.type != Gdk.EventType.BUTTON_PRESS:
-        return
-    button = 'Left'
-    if event.button == 2:
-        button = 'Middle'
-    elif event.button == 3:
-        button = 'Right'
-    col = int(math.floor(event.x / self.cell_width))
-    row = int(math.floor(event.y / self.cell_height))
-    input_str = self.key_input(button + 'Mouse', event.state)
-    input_str += '<{0},{1}>'.format(col, row)
-    self.vim.nvim_input(input_str)
+      return
+    
+    button = BUTTON_NAMES.get(event.button)
+    if not button:
+      return
+    
+    mod, row, col = self.parse_mouse(event)
+    self.vim.nvim_input_mouse(button, 'press', mod, row, col)
     self.button_pressed = button
     return True
 
@@ -1456,26 +1479,20 @@ class VimView(B8View):
     if not self.button_pressed:
         return
     if not self.button_drag:
-      self.vim.cmd('nvim_input', ['<Esc>v'])
       self.button_drag = True
-    col = int(math.floor(event.x / self.cell_width))
-    row = int(math.floor(event.y / self.cell_height))
-    input_str = self.key_input(self.button_pressed + 'Drag', event.state)
-    input_str += '<{0},{1}>'.format(col, row)
-    self.vim.nvim_input(input_str)
+    mod, row, col = self.parse_mouse(event)
+    self.vim.nvim_input_mouse(self.button_pressed, 'drag', mod, row, col)
 
   def on_scroll_event(self, widget, event, *args):
-    col = int(math.floor(event.x / self.cell_width))
-    row = int(math.floor(event.y / self.cell_width))
     if event.direction == Gdk.ScrollDirection.UP:
-        key = 'ScrollWheelUp'
+      direction = 'up'
     elif event.direction == Gdk.ScrollDirection.DOWN:
-        key = 'ScrollWheelDown'
+      direction = 'down'
     else:
-        return
-    input_str = self.key_input(key, event.state)
-    input_str += '<{0},{1}>'.format(col, row)
-    self.vim.nvim_input(input_str)
+      return
+    mod, row, col = self.parse_mouse(event)
+    self.vim.nvim_input_mouse('wheel', direction, mod, row, col)
+
 
   def on_focus_in_event(self, widget, event):
     self.debug('focus in')
@@ -1484,6 +1501,22 @@ class VimView(B8View):
   def on_focus_out_event(self, widget, event):
     self.debug('focus out')
     self.queue_redraw()
+
+
+  def parse_mouse(self, event):
+    col = int(math.floor(event.x / self.cell_width))
+    row = int(math.floor(event.y / self.cell_height))
+    mods = []
+    if event.state & Gdk.ModifierType.SHIFT_MASK:
+      out.append('S')
+    if event.state & Gdk.ModifierType.CONTROL_MASK:
+      out.append('C')
+    if event.state & Gdk.ModifierType.MOD1_MASK:
+      out.append('A')
+    mod = ''.join(mods)
+    return mod, row, col
+
+
 
   def key_input(self, input_str, state):
     out = []
@@ -1507,6 +1540,12 @@ MODIFIER_NAMES = {
     'Alt_L'
 }
 
+BUTTON_NAMES = {
+    1: 'left',
+    2: 'middle',
+    3: 'right',
+}
+
 KEY_NAMES = {
     'BackSpace': 'BS',
     'Return': 'CR',
@@ -1520,6 +1559,9 @@ KEY_NAMES = {
     'Left': 'Left',
     'Up': 'Up',
     'Down': 'Down',
+    'Insert': 'Insert',
+    'End': 'End',
+    'Home': 'Home',
 }
 
 TERMINAL_THEMES = {
