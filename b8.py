@@ -221,6 +221,9 @@ class Config(B8Object):
       'terminal': {
         'theme':'b8',
         'font': 'Monospace 13',
+      },
+      'vim': {
+        'font': 'Monospace 13',
       }
   }
 
@@ -452,6 +455,7 @@ class TerminalView(B8View):
   child_pid = 0 
   child_cwd = ''
   linked_browser = False
+  started = False
 
   def create_ui(self):
     self.term = Vte.Terminal()
@@ -500,17 +504,45 @@ class TerminalView(B8View):
     self.connect('clicked', self.paste_button, 'paste_button')
     self.connect('clicked', self.select_button, 'select_button')
     self.connect('clicked', self.term_button, 'term_button')
+    self.connect('child-exited', self.term)
 
+  def on_child_exited(self, ti, status):
+    self.started = False
+    print('exited')
+    self.pid = None
+    self.term.feed(b'\x1b[0;1;34mExited, status: \x1b[0;1;31m{status}, \x1b[0mpress enter to close')
+    self.term.connect('key-press-event', self.on_keypress_after_exit)
 
+  def on_keypress_after_exit(self, terminal, event):
+    key_name = Gdk.keyval_name(event.keyval)
+    if key_name == 'Return':
+      self.close()
+
+  def close(self):
+    self.widget.get_parent().remove(self.widget)
+
+  def on_started(self, t, pid, *args):
+    self.child_pid = pid
+    t.watch_child(pid)
+    self.update_label()
+    GLib.timeout_add(500, self.label_updater)
+    self.widget.grab_focus()
 
   def start(self, wd):
     self.child_cwd = wd
-    (success, self.child_pid) = self.term.spawn_sync(Vte.PtyFlags.DEFAULT,
-            self.child_cwd, [self.get_default_shell()], [],
-        GLib.SpawnFlags.DEFAULT, None, None, None);
-    GLib.timeout_add(500, self.label_updater)
-    self.update_label()
-    self.widget.grab_focus()
+    self.term.spawn_async(
+        Vte.PtyFlags.DEFAULT,
+        self.child_cwd,
+        [self.get_default_shell()],
+        [],
+        GLib.SpawnFlags.DEFAULT | GLib.SpawnFlags.DO_NOT_REAP_CHILD,
+        None,
+        None,
+        -1,
+        None,
+        self.on_started,
+        None)
+    self.started = True
 
   def get_selection_text(self):
     if self.term.get_has_selection():
@@ -532,13 +564,17 @@ class TerminalView(B8View):
     return self.label
 
   def label_updater(self):
+    if not self.child_pid:
+      return
+    if not self.started:
+      return
     new_cwd = self.get_cwd()
     if new_cwd != self.child_cwd:
       self.child_cwd = new_cwd
       self.update_label()
       if self.linked_browser:
         self.b8.show_path(self.child_cwd)
-    return self.b8.running
+    return self.b8.running and self.started
 
   def update_label(self):
     self.label.set_markup(self.markup())
@@ -970,8 +1006,8 @@ class Color:
 class Vim(B8Object):
   """NeoVim Library for embedding, using GLib's async model."""
   command_id = 0
-  width = 0
-  height = 0
+  width = 10
+  height = 10
   started = False
   current_buffer = None
   cursor_x = -1
@@ -984,6 +1020,8 @@ class Vim(B8Object):
     self.highlights = {}
     self.modes = {}
     self.current_mode = None
+    self.options = {}
+    self.start()
 
   def start(self):
     if not self.width and self.height:
@@ -1287,25 +1325,27 @@ class VimView(B8View):
   def on_configure_event(self, w, event):
     self.debug(f'configure-event')
 
+
+  def on_size_allocate(self, w, allocation):
+    self.debug('size-allocate')
     ims = cairo.ImageSurface(cairo.FORMAT_RGB24, 300, 300)
     cr = cairo.Context(ims)
-    self._font = Pango.font_description_from_string('Liberation Mono 12')
+    font_name = self.b8.config.get('vim', 'font')
+    self.font = Pango.font_description_from_string(font_name)
     layout = PangoCairo.create_layout(cr)
-    layout.set_font_description(self._font)
+    layout.set_font_description(self.font)
     layout.set_alignment(Pango.Alignment.LEFT)
-    layout.set_markup('<span font_weight="bold">A</span>')
-    bold_width, bold_height = layout.get_size()
     layout.set_markup('<span>A</span>')
     self.cell_width, self.cell_height = layout.get_pixel_size()
     normal_width, normal_height = layout.get_size()
 
-    rows = event.height / self.cell_height
-    cols = event.width / self.cell_width
+    rows = allocation.height / self.cell_height
+    cols = allocation.width / self.cell_width
 
-    self.draw_width = event.width
-    self.draw_height = event.height
-    self.draw_x = event.x
-    self.draw_y = event.y
+    self.draw_width = allocation.width
+    self.draw_height = allocation.height
+    self.draw_x = allocation.x
+    self.draw_y = allocation.y
     self.vim.width = int(cols)
     self.vim.height = int(rows)
 
@@ -1314,22 +1354,11 @@ class VimView(B8View):
     else:
       self.vim.start()
 
-  def on_size_allocate(self, w, allocation):
-    print('size_allocate', allocation.x, allocation.y, allocation.width,
-        allocation.height)
-
   def on_realize(self, w):
     self.debug('realize')
-    #content = cairo.CONTENT_COLOR
-    #gdkwin = self.drawing_area.get_window()
-    #sfc = gdkwin.create_similar_surface(content,
-     #                                                   gdkwin.get_width(),
-     #                                                   gdkwin.get_height())
-    #self._cairo_context = cairo.Context(sfc)
-    #self._pango_layout = PangoCairo.create_layout(self._cairo_context)
     self._pango_layout = PangoCairo.create_layout(w.get_window().cairo_create())
     self._pango_layout.set_alignment(Pango.Alignment.LEFT)
-    self._pango_layout.set_font_description(self._font)
+    self._pango_layout.set_font_description(self.font)
     self.drawing_area.queue_draw()
     self.drawing_area.grab_focus()
 
@@ -1342,8 +1371,9 @@ class VimView(B8View):
     if self.attempt_optimize and self.old_surface:
       cr.move_to(0, 0)
       cr.set_source_surface(self.old_surface)
-      cr.rectangle(0, 0, self.draw_width, self.draw_height)
-      cr.fill()
+      #cr.rectangle(0, 0, self.draw_width, self.draw_height)
+      #cr.fill()
+      cr.paint()
     else:
       bg = self.vim.default_hl.background
       cr.set_source_rgb(bg.r, bg.g, bg.b)
@@ -1351,15 +1381,15 @@ class VimView(B8View):
     for (cy, row) in enumerate(self.vim.grid.cells):
       for (cx, cell) in enumerate(row):
 
+        is_dirty = True
         if self.attempt_optimize and self.old_grid:
           old_cell = self.old_grid.cells[cy][cx]
           if cell.text == old_cell.text and cell.hl is old_cell.hl:
-            continue
+            is_dirty = False
 
         x = cx * self.cell_width
         y = cy * self.cell_height
 
-        cr.move_to(x, y)
         bg = None
         if cell.hl is None:
           bg = self.vim.default_hl.background
@@ -1382,6 +1412,7 @@ class VimView(B8View):
 
 
         if bg is not self.vim.default_hl.background:
+          cr.move_to(x, y)
           cr.set_source_rgb(bg.r, bg.g, bg.b)
           cr.rectangle(x, y, self.cell_width, self.cell_height)
           cr.fill()
@@ -1402,10 +1433,10 @@ class VimView(B8View):
             cr.rectangle(x, y, cursor_width-1, self.cell_height-1)
             cr.stroke()
 
-        cr.move_to(x, y)
-        cr.set_source_rgb(fg.r, fg.g, fg.b)
 
-        if cell.text != ' ':
+        if is_dirty and cell.text != ' ':
+          cr.move_to(x, y)
+          cr.set_source_rgb(fg.r, fg.g, fg.b)
           self._pango_layout.set_text(cell.text, -1)
           PangoCairo.update_layout(cr, self._pango_layout)
           PangoCairo.show_layout(cr, self._pango_layout)
@@ -1415,14 +1446,15 @@ class VimView(B8View):
     w.get_window().thaw_updates()
 
     if self.attempt_optimize:
-      sfc = cr.get_target()
-      self.old_surface =  sfc.create_similar(cairo.CONTENT_COLOR, self.draw_width,
+      self.old_surface =  w.get_window().create_similar_surface(cairo.CONTENT_COLOR, self.draw_width,
           self.draw_height)
       ocr = cairo.Context(self.old_surface)
-      ocr.set_source_surface(sfc, sfc.get_width() - self.draw_width, 0)
-      ocr.move_to(0, 0)
-      ocr.rectangle(0, 0, self.draw_width, self.draw_height)
-      ocr.fill()
+      Gdk.cairo_set_source_window(ocr, w.get_window(), 0, 0)
+      #ocr.set_source_surface(sfc, sfc.get_width() - self.draw_width, 0)
+      #ocr.move_to(0, 0)
+      #ocr.rectangle(0, 0, self.draw_width, self.draw_height)
+      #ocr.fill()
+      ocr.paint()
       self.old_grid = self.vim.grid.clone()
 
   def on_key_press_event(self, widget, event, *args):
