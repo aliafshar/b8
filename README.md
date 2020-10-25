@@ -56,6 +56,28 @@ Or of course if you have everything already and you dgaf just run the script:
 $ python3 b8.py
 ```
 
+## Manual
+
+```
+🞄 b8 --help                                                                                                                                                                                                                                            
+usage: b8 [-h] [--remote] [--debug] [files [files ...]]
+
+The bominade IDE
+
+positional arguments:
+  files       Files to open
+
+optional arguments:
+  -h, --help  show this help message and exit
+  --remote    Open in a running b8
+  --debug     Debug log output
+```
+
+So, you can pass file names as a positional argument to open.
+
+You can also use --remote to open a file in a running b8. Note: this is barely
+built so it only uses the first b8 instance it can find.
+
 ## FAQ
 
 **Why do you ignore my guifont setting?** Raise a bug if this annoys you, but by the
