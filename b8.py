@@ -487,48 +487,6 @@ class Terminals(B8View):
     t.start(wd)
 
 
-class Interactive(code.InteractiveInterpreter):
-
-  ps1 = b'b8 >>> '
-  ps2 = b'b8 ... '
-
-
-  def __init__(self, b8, term_view):
-    self.b8 = b8
-    self.term_view = term_view
-    code.InteractiveInterpreter.__init__(self, locals={'b8': b8})
-    self.term_view.term.feed(b'bominade interactive console\r\n')
-    self.term_view.term.feed(self.prompt)
-    self.term_view.term.connect('commit', self.on_commit)
-    self.buffer = []
-
-  def on_commit(self, w, text, size):
-    print(w, [text], size)
-    to_show = text.replace('\r', '\r\n')
-    self.buffer.append(to_show)
-    self.term_view.term.feed(to_show.encode('utf-8'))
-    if text == '\r':
-      line = ''.join(self.buffer)
-      print([line])
-      oldstdout = sys.stdout
-      newstdout = io.StringIO()
-      sys.stdout = newstdout
-      more = self.runsource(line)
-      sys.stdout = oldstdout
-      if more:
-        self.prompt = self.ps2
-      else:
-        self.prompt = self.ps1
-        self.buffer = []
-        newstdout.seek(0)
-        reply = newstdout.read().replace('\n', '\r\n')
-        self.term_view.term.feed(reply.encode('utf-8'))
-      self.term_view.term.feed(self.prompt)
-
-  def write(self, data):
-    print('data', data)
-    self.term_view.term.feed(data.encode('utf-8'))
-
 
 class Console(B8View):
 
