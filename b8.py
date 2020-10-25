@@ -18,7 +18,7 @@ import cairo
 import msgpack
 
 
-VERSION = '0.0.3'
+VERSION = '0.0.4'
 
 
 class B8Object:
