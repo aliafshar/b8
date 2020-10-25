@@ -189,12 +189,17 @@ class B8Window(B8View):
 class Arguments(B8Object):
 
   def init(self):
-    parser = argparse.ArgumentParser('bominade IDE')
-    parser.add_argument('--remote')
+    parser = argparse.ArgumentParser(
+        prog='b8',
+        description='The bominade IDE')
+    parser.add_argument(
+        '--remote',
+        action='store_true',
+        help='Open in a running b8')
     parser.add_argument('--debug', action='store_true', help='Debug log output')
     parser.add_argument('files', nargs='*', help='Files to open')
     self.args = parser.parse_args()
-    print(self.args)
+    self.parser = parser
 
 
 class Instance(B8Object):
@@ -252,8 +257,13 @@ class Config(B8Object):
 class Remote(B8Object):
 
   def init(self):
+    fs = self.b8.arguments.args.files
+    if not fs:
+      self.error('but you did not pass any files')
+      self.b8.arguments.parser.print_usage()
+      return
+    command = fs[0]
 
-    command = self.b8.arguments.args.remote
     potentials = os.listdir(self.b8.instance.run_path)
     if len(potentials) == 1:
       if command == 'list':
@@ -289,8 +299,9 @@ class Ipc(B8Object):
       if len(d) < 1024:
         break
     for msg in self.unpacker:
-      if msg[0].decode('utf-8') == 'open':
-        self.b8.show_path(msg[1].decode('utf-8'))
+      self.debug(f'ipc message {msg}')
+      if msg[0] == 'open':
+        self.b8.show_path(msg[1])
 
   def destroy(self):
     os.close(self.fifo)
