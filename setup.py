@@ -3,17 +3,21 @@
 # MIT License. See LICENSE.
 # vim: ft=python sw=2 ts=2 sts=2 tw=80
 
-import b8
 from setuptools import setup
 
 with open('README.md') as f:
   long_description = f.read()
 
+with open('b8.py') as f:
+  for line in f:
+    if line.startswith('VERSION'):
+      version = line.strip().split(' ')[-1][1:-1]
+      break
 
 
 setup(    
   name = 'b8',
-  version = b8.VERSION,
+  version = version,
   description = 'Ultralight IDE based on NeoVim',
   long_description = long_description,
   long_description_content_type='text/markdown',
