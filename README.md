@@ -21,7 +21,7 @@ heavy development.
 
 This is what we mean...
 
-![Bominade screenshot](tools/screenshot.png)
+![Bominade screenshot](https://gitlab.com/afshar-oss/b8/-/raw/dev/tools/screenshot.png)
 
 ## Getting started
 
@@ -32,18 +32,35 @@ You will need a few dependencies: NeoVim, python3, gtk, vte, msgpack.
 Something like this should be enough, but let me know:
 
 ```
-# apt install python3 python3-gi python3-gi-cairo libvte-2.91-0 python3-msgpack neovim
+# apt install python3 python3-gi python3-gi-cairo libvte-2.91-0
 ```
 
-It uses NeoVim's non-deprecated linegrid methodology, so you need a reasonably
-recent NeoVim. I use 0.4.4-1 from ppa, but the stock in the latest LTS Ubuntu
-works too.
+It uses NeoVim's non-deprecated linegrid methodology, so you need a
+recent NeoVim. I use 0.4.4-1 from [neovim stable
+ppa](https://launchpad.net/~neovim-ppa/+archive/ubuntu/stable).
 
-Then just run the script:
+```
+pip install b8
+```
+
+In a virtualenv you need some trickery to use gi from the system:
+
+```
+virtualenv -p python3 --system-site-packages env
+./env/bin/pip install -I b8  # -I ignores site packages for what it can
+```
+
+Or of course if you have everything already and you dgaf just run the script:
 
 ```
 $ python3 b8.py
 ```
+
+## FAQ
+
+**Why do you ignore my guifont setting?** Raise a bug if this annoys you, but by the
+time we get that option from NeoVim things are already drawn and you get a jank
+which annoys me even more. Instead just set the font in b8's config file e.g. below.
 
 ## Config
 
@@ -53,6 +70,9 @@ Edit `~/.config/b8/b8rc` which is a standard ini file.
 ```
 [terminal]
 theme = solarized_dark
+
+[vim]
+font = Liberation Mono 14
 ```
 
 There are other themes: tango, dark_pastels, green_on_black and others. I should list them.
