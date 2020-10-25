@@ -761,7 +761,7 @@ class Buffer:
   number = ''
 
   def __init__(self, path, number):
-    self.path = path
+    self.path = os.path.realpath(path)
     self.number = number
     self.name = os.path.basename(path)
     self.parent = os.path.dirname(path)
@@ -817,7 +817,6 @@ class Buffers(B8View):
   def remove(self, path, number):
     for grow in self.model:
       b = self.model.get_value(grow.iter, 0)
-
       if b.number == number and b.path == path:
         self.model.remove(grow.iter)
         return
@@ -1247,15 +1246,15 @@ class Vim(B8Object):
   def on_buffers(self, opts):
     action = opts[0]
     buffer_number = int(opts[1])
-    buffer_path = opts[2]
+    vim_path = opts[2]
+    if not vim_path:
+      # New files and things
+      return 
+    buffer_path = os.path.realpath(vim_path)
     self.debug(f'buffers {action} {buffer_number} {buffer_path}')
     if action == 'enter':
-      if not buffer_path:
-        return
       self.b8.buffers.change(buffer_path, buffer_number)
     elif action == 'delete':
-      if not buffer_path:
-        return
       self.b8.buffers.remove(buffer_path, buffer_number)
 
 
