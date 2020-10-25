@@ -3,7 +3,7 @@
 # MIT License. See LICENSE.
 # vim: ft=python sw=2 ts=2 sts=2 tw=80
 
-import argparse, configparser, math, os, pwd, subprocess, sys, threading, uuid
+import argparse, code, configparser, io, math, os, pwd, subprocess, sys, threading, uuid
 
 import gi
 gi.require_version("Gtk", "3.0")
@@ -34,7 +34,7 @@ class B8Object:
   def log(self, level, msg):
     """Because who can ever work out logging."""
     logmsg = f'{level}:{self.__class__.__name__}:{msg}'
-    if self.b8.terminals:
+    if self.b8.terminals and self.b8.arguments.args.debug:
       self.b8.terminals.logger.msg(logmsg)
     print(logmsg)
 
@@ -188,8 +188,10 @@ class Arguments(B8Object):
   def init(self):
     parser = argparse.ArgumentParser('bominade IDE')
     parser.add_argument('--remote')
-    parser.add_argument('--debug', action='store_true')
+    parser.add_argument('--debug', action='store_true', help='Debug log output')
+    parser.add_argument('files', nargs='*', help='Files to open')
     self.args = parser.parse_args()
+    print(self.args)
 
 
 class Instance(B8Object):
@@ -451,8 +453,12 @@ class Terminals(B8View):
     self.book.set_scrollable(True)
     widget.pack_start(self.book, True, True, 0)
     self.theme = TerminalTheme(self.b8)
-    self.logger = LogView(self.b8)
-    self.append(self.logger)
+    if self.b8.arguments.args.debug:
+      self.logger = LogView(self.b8)
+      self.append(self.logger)
+      self.console = Console(self.b8)
+      self.append(self.console)
+
     return widget
 
   def append(self, w):
@@ -466,6 +472,104 @@ class Terminals(B8View):
     self.book.show_all()
     self.book.set_current_page(pagenum)
     t.start(wd)
+
+
+class Interactive(code.InteractiveInterpreter):
+
+  ps1 = b'b8 >>> '
+  ps2 = b'b8 ... '
+
+
+  def __init__(self, b8, term_view):
+    self.b8 = b8
+    self.term_view = term_view
+    code.InteractiveInterpreter.__init__(self, locals={'b8': b8})
+    self.term_view.term.feed(b'bominade interactive console\r\n')
+    self.term_view.term.feed(self.prompt)
+    self.term_view.term.connect('commit', self.on_commit)
+    self.buffer = []
+
+  def on_commit(self, w, text, size):
+    print(w, [text], size)
+    to_show = text.replace('\r', '\r\n')
+    self.buffer.append(to_show)
+    self.term_view.term.feed(to_show.encode('utf-8'))
+    if text == '\r':
+      line = ''.join(self.buffer)
+      print([line])
+      oldstdout = sys.stdout
+      newstdout = io.StringIO()
+      sys.stdout = newstdout
+      more = self.runsource(line)
+      sys.stdout = oldstdout
+      if more:
+        self.prompt = self.ps2
+      else:
+        self.prompt = self.ps1
+        self.buffer = []
+        newstdout.seek(0)
+        reply = newstdout.read().replace('\n', '\r\n')
+        self.term_view.term.feed(reply.encode('utf-8'))
+      self.term_view.term.feed(self.prompt)
+
+  def write(self, data):
+    print('data', data)
+    self.term_view.term.feed(data.encode('utf-8'))
+
+
+class Console(B8View):
+
+  ps1 = 'b8 >>> '
+  ps2 = 'b8 ... '
+
+  def create_ui(self):
+    self.term = Vte.Terminal()
+    theme = TerminalTheme(self.b8)
+    self.term.set_colors(theme.foreground, theme.background, theme.palette)
+    self.term.set_color_cursor(theme.cursor)
+    self.term.set_color_cursor_foreground(theme.cursor)
+    self.term.set_font(theme.font_desc)
+    self.term.set_scroll_on_output(True)
+    self.term.connect('commit', self.on_commit)
+    self.buffer = []
+    self.prompt = self.ps1
+    self.feed('bominade interactive console\n')
+    self.feed(self.prompt)
+    self.interactive = code.InteractiveInterpreter(locals={'b8': self.b8})
+    #self.term.connect()
+    return self.term
+
+  def on_commit(self, w, text, size):
+    self.buffer.append(text.replace('\r', '\r\n'))
+    self.feed(text)
+    if text == '\r':
+      line = ''.join(self.buffer)
+      oldstdout = sys.stdout
+      newstdout = io.StringIO()
+      sys.stdout = newstdout
+      more = self.interactive.runsource(line)
+      sys.stdout = oldstdout
+      if more:
+        self.prompt = self.ps2
+      else:
+        self.prompt = self.ps1
+        self.buffer = []
+        newstdout.seek(0)
+        reply = newstdout.read()
+        self.feed(reply)
+      self.feed(self.prompt)
+
+  def feed(self, t):
+    t = t.replace('\n', '\r\n')
+    b = t.encode('utf-8')
+    self.term.feed(b)
+
+  def create_tab_label(self):
+    self.label = Gtk.Label()
+    self.label.set_label('b8 console')
+    self.label.set_width_chars(8)
+    return self.label
+
 
 
 class LogView(B8View):
@@ -1060,6 +1164,9 @@ class Vim(B8Object):
   cursor_x = -1
   cursor_y = -1
 
+  nvim_binary = 'nvim'
+  nvim_base_args = ['--embed']
+
   def init(self):
     self.grid = None
     self.unpacker = msgpack.Unpacker()
@@ -1070,13 +1177,17 @@ class Vim(B8Object):
     self.options = {}
     self.start()
 
+  def get_nvim_argv(self):
+    return [self.nvim_binary] + self.nvim_base_args +  self.b8.arguments.args.files
+
   def start(self):
     if not self.width and self.height:
       return
 
     self.started = True
 
-    self.proc = subprocess.Popen(['nvim', '--embed'],
+
+    self.proc = subprocess.Popen(self.get_nvim_argv(),
         stdout=subprocess.PIPE,
         stdin=subprocess.PIPE,
         stderr=subprocess.PIPE)
@@ -1626,6 +1737,7 @@ BUTTON_NAMES = {
 }
 
 KEY_NAMES = {
+    'less': 'LT',
     'BackSpace': 'BS',
     'Return': 'CR',
     'Escape': 'Esc',
