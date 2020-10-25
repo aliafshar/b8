@@ -18,7 +18,7 @@ import cairo
 import msgpack
 
 
-VERSION = '0.0.5'
+VERSION = '0.0.6'
 
 
 class B8Object:
@@ -786,6 +786,7 @@ class Buffers(B8View):
     self.column.set_cell_data_func(self.cell, self.render)
     self.tree.append_column(self.column)
     self.tree.connect('row-activated', self.on_row_activated)
+    self.tree.connect('button-press-event', self.on_button_press_event)
     self.tree.set_activate_on_single_click(True)
     widget = Gtk.ScrolledWindow()
     widget.add(self.tree)
@@ -831,6 +832,20 @@ class Buffers(B8View):
   def render(self, cell_layout, cell, tree_model, iter, *data):
     b = tree_model.get_value(iter, 0)
     cell.set_property('markup', b.markup)
+
+  def on_button_press_event(self, treeview, event):
+    if event.button != Gdk.BUTTON_SECONDARY:
+      return
+    item_spec = self.tree.get_path_at_pos(int(event.x), int(event.y))
+    if item_spec is not None:
+      # clicked on an actual cell
+      path, col, rx, ry = item_spec
+      giter = self.model.get_iter(path)
+      b = self.model.get_value(giter, 0)
+      action = 'file'
+      menu = self.b8.contexts.menu(action, b.path)
+      menu.popup(None, None, None, None, event.button, event.time)
+      return True
 
 
 class File:
