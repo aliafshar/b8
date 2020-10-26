@@ -84,6 +84,10 @@ built so it only uses the first b8 instance it can find.
 time we get that option from NeoVim things are already drawn and you get a jank
 which annoys me even more. Instead just set the font in b8's config file e.g. below.
 
+**Why is the mouse behaving stupidly?** Unlike GVim where the mouse is
+configured to be on, you have to explicitly do it for NeoVim. Instead of forcing
+it on the b8 side, we request you run `:set mouse=a` to do that.
+
 ## Config
 
 Set up your NeoVim however you like it. Yummy!
