@@ -368,7 +368,7 @@ class Action:
     hb.pack_start(self.icon(), expand=False, fill=False, padding=0)
     l = Gtk.Label()
     l.set_label(self.label_text)
-    hb.pack_start(l, expand=True, fill=False, padding=0)
+    hb.pack_start(l, expand=False, fill=False, padding=12)
     item.add(hb)
     return item
 
