@@ -17,7 +17,7 @@ clean:
 	rm -rf build dist b8.egg-info ve __pycache__
 
 upload: sdist
-	flit upload
+	flit release
 
 release: upload
 	make clean
