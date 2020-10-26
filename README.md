@@ -80,7 +80,8 @@ built so it only uses the first b8 instance it can find.
 
 ## Keyboard Shortcuts
 
-These are fixed for now, please raise a bug if you want to change them.
+The following actions are available at the top-level. You can modify them in the
+config (see config section below).
 
 | Key Press 	| Action            	|
 |-----------	|-------------------	|
@@ -111,6 +112,13 @@ theme = solarized_dark
 
 [vim]
 font = Liberation Mono 14
+
+[shortcuts]
+next_buffer = <Alt>Down
+prev_buffer = <Alt>Up
+next_terminal = <Alt>Right
+prev_terminal = <Alt>Left
+new_terminal = <Alt>t
 ```
 
 There are other themes: tango, dark_pastels, green_on_black and others. I should list them.

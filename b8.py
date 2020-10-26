@@ -193,23 +193,33 @@ class B8Window(B8View):
     self.connect('configure-event')
     self.window.add_events(Gdk.EventMask.KEY_PRESS_MASK)
     self.connect('key-press-event')
+
+    self.key_map = {}
+    config_map = {
+        'next_buffer': self.b8.next_buffer,
+        'prev_buffer': self.b8.prev_buffer,
+        'next_terminal': self.b8.next_terminal,
+        'prev_terminal': self.b8.prev_terminal,
+        'new_terminal': self.b8.show_shell,
+    }
+    for action_name in config_map:
+      shortcut = self.b8.config.get('shortcuts', action_name)
+      key, mods = Gtk.accelerator_parse(shortcut)
+      self.key_map[(key, mods)] = config_map[action_name]
+
     
   def on_key_press_event(self, w, event):
     key_name = Gdk.keyval_name(event.keyval)
     if key_name in MODIFIER_NAMES:
       return
-    if event.state & Gdk.ModifierType.MOD1_MASK:
-      key_map = {
-          'Right': self.b8.next_terminal,
-          'Left': self.b8.prev_terminal,
-          'Up': self.b8.prev_buffer,
-          'Down': self.b8.next_buffer,
-          't': self.b8.show_shell,
-      }
-      key_func = key_map.get(key_name)
-      if key_func:
-        key_func()
-        return True
+    # remove the reserved flags:
+    # https://lazka.github.io/pgi-docs/#Gdk-3.0/flags.html#Gdk.ModifierType
+    state = event.state & Gdk.ModifierType.MODIFIER_MASK
+    action = self.key_map.get((event.keyval, state))
+    if action:
+      action()
+      # True to prevent propagation
+      return True
 
 
   def on_configure_event(self, w, e):
@@ -272,6 +282,13 @@ class Config(B8Object):
       },
       'vim': {
         'font': 'Monospace 13',
+      },
+      'shortcuts': {
+        'prev_buffer': '<Alt>Left',
+        'next_buffer': '<Alt>Right',
+        'prev_terminal': '<Alt>Up',
+        'next_terminal': '<Alt>Down',
+        'new_terminal': '<Alt>t',
       }
   }
 
