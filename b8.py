@@ -3,14 +3,18 @@
 # MIT License. See LICENSE.
 # vim: ft=python sw=2 ts=2 sts=2 tw=80
 
+"""b8, Bominade Ultralight NeoVim-based IDE"""
+
+__version__ = '0.0.11'
+
 import argparse, code, configparser, io, math, os, pwd, subprocess, sys, threading, uuid
 
+# Dance, then, wherever you may be!
 import gi
-gi.require_version("Gtk", "3.0")
-gi.require_version('Vte', '2.91')
-gi.require_version('PangoCairo', '1.0')
 gi.require_version('Gdk', '3.0')
-
+gi.require_version('Gtk', '3.0')
+gi.require_version('PangoCairo', '1.0')
+gi.require_version('Vte', '2.91')
 
 from gi.repository import GLib, GObject, Gdk, Gtk, Pango, PangoCairo, Vte
 

@@ -7,15 +7,17 @@ lint:
 
 ve:
 	virtualenv -p python3 --system-site-packages ve
+	./ve/bin/pip install -I flit
+	./ve/bin/flit install
 
-sdist: clean ve
-	./ve/bin/python setup.py sdist bdist_wheel
+sdist: clean
+	flit build
 
 clean:
 	rm -rf build dist b8.egg-info ve __pycache__
 
 upload: sdist
-	twine upload dist/*
+	flit upload
 
 release: upload
 	make clean
