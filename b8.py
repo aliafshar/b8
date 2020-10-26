@@ -130,8 +130,22 @@ class B8:
       self.vim.nvim_open_buffer(path)
       self.ui.vimview.drawing_area.grab_focus()
 
-  def show_shell(self, path):
+  def show_shell(self, path=None):
+    if not path:
+      path = os.path.expanduser('~')
     self.terminals.create(path)
+
+  def next_terminal(self):
+    self.terminals.next()
+
+  def prev_terminal(self):
+    self.terminals.prev()
+
+  def prev_buffer(self):
+    self.buffers.prev()
+
+  def next_buffer(self):
+    self.buffers.next()
 
   def close_path(self, path):
     self.vim.nvim_delete_buffer(path)
@@ -166,7 +180,6 @@ class B8Window(B8View):
     self.window.add(hsplit)
 
     rsplit.set_property('position', 600)
-    #self.lsplit.set_property('position', 600)
     self.vimview = VimView(self.b8)
     rsplit.pack1(self.vimview.view, resize=True, shrink=False)
     rsplit.pack2(self.b8.terminals.widget, resize=True, shrink=False)
@@ -177,7 +190,26 @@ class B8Window(B8View):
   def connect_ui(self):
     self.connect('destroy')
     self.connect('configure-event')
+    self.window.add_events(Gdk.EventMask.KEY_PRESS_MASK)
+    self.connect('key-press-event')
     
+  def on_key_press_event(self, w, event):
+    key_name = Gdk.keyval_name(event.keyval)
+    if key_name in MODIFIER_NAMES:
+      return
+    if event.state & Gdk.ModifierType.MOD1_MASK:
+      key_map = {
+          'Right': self.b8.next_terminal,
+          'Left': self.b8.prev_terminal,
+          'Up': self.b8.prev_buffer,
+          'Down': self.b8.next_buffer,
+          't': self.b8.show_shell,
+      }
+      key_func = key_map.get(key_name)
+      if key_func:
+        key_func()
+        return True
+
 
   def on_configure_event(self, w, e):
     self.rsplit.set_position(2.0 * e.height / 3)
@@ -472,8 +504,14 @@ class Terminals(B8View):
       self.append(self.logger)
       self.console = Console(self.b8)
       self.append(self.console)
-
     return widget
+
+  def connect_ui(self):
+    self.connect('page-removed', self.book)
+
+  def on_page_removed(self, w, c, n):
+    if not self.book.get_n_pages() and self.b8.running:
+      self.b8.show_shell()
 
   def append(self, w):
     pagenum = self.book.append_page(w.widget, w.create_tab_label())
@@ -487,6 +525,27 @@ class Terminals(B8View):
     self.book.set_current_page(pagenum)
     t.start(wd)
 
+  def prev(self):
+    c = self.book.get_current_page()
+    n = c - 1
+    if n < 0:
+      n = self.book.get_n_pages() - 1
+    self.change_tab(n)
+    
+  def next(self):
+    c = self.book.get_current_page()
+    n = c + 1
+    if n == self.book.get_n_pages():
+      n = 0
+    self.change_tab(n)
+
+
+  def change_tab(self, n):
+    self.book.set_current_page(n)
+    p = self.book.get_nth_page(n)
+    if hasattr(p, 'term'):
+      p = p.term
+    p.grab_focus()
 
 
 class Console(B8View):
@@ -612,6 +671,7 @@ class TerminalView(B8View):
     self.term.set_color_cursor(theme.cursor)
     self.term.set_color_cursor_foreground(theme.cursor)
     self.term.set_font(theme.font_desc)
+    widget.term = self.term
     return widget
 
   def connect_ui(self):
@@ -661,6 +721,7 @@ class TerminalView(B8View):
         self.on_started,
         None)
     self.started = True
+    self.term.grab_focus()
 
   def get_selection_text(self):
     if self.term.get_has_selection():
@@ -792,10 +853,37 @@ class Buffers(B8View):
     widget = Gtk.ScrolledWindow()
     widget.add(self.tree)
     return widget
+
+  def next(self):
+    l = self.model.iter_n_children(None)
+    if not l:
+      return
+    m, siter = self.tree.get_selection().get_selected()
+    giter = self.model.iter_next(siter)
+    if not giter:
+      # We are at the end or there is only 1, doesn't matter
+      giter = self.model.iter_nth_child(None, 0)
+    self.activate_iter(giter)
+
+  def prev(self):
+    l = self.model.iter_n_children(None)
+    if not l:
+      return
+    m, siter = self.tree.get_selection().get_selected()
+    giter = self.model.iter_previous(siter)
+    if not giter:
+      # We are at the beginning or there is only 1, doesn't matter
+      giter = self.model.iter_nth_child(None, l - 1)
+    self.activate_iter(giter)
+
+  def activate_iter(self, giter):
+    b = self.model.get_value(giter, 0)
+    self.b8.vim.nvim_change_buffer(b.number)
     
   def select(self, giter):
     selection = self.tree.get_selection()
-    if selection.get_selected() != giter:
+    m, siter = selection.get_selected()
+    if siter != giter:
       self.tree.get_selection().select_iter(giter)
     b = self.model.get(giter, 0)[0]
     self.debug(f'select {b}')

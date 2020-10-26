@@ -78,6 +78,18 @@ So, you can pass file names as a positional argument to open.
 You can also use --remote to open a file in a running b8. Note: this is barely
 built so it only uses the first b8 instance it can find.
 
+## Keyboard Shortcuts
+
+These are fixed for now, please raise a bug if you want to change them.
+
+| Key Press 	| Action            	|
+|-----------	|-------------------	|
+| Alt-Up    	| Previous Buffer   	|
+| Alt-Down  	| Next Buffer       	|
+| Alt-Right 	| Previous Terminal 	|
+| Alt-Left  	| Next Terminal     	|
+| Alt-t     	| New Terminal      	|
+
 ## FAQ
 
 **Why do you ignore my guifont setting?** Raise a bug if this annoys you, but by the
