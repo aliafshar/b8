@@ -224,7 +224,7 @@ class Arguments(B8Object):
   def init(self):
     parser = argparse.ArgumentParser(
         prog='b8',
-        description='The bominade IDE')
+        description=f'The bominade IDE, version {__version__}')
     parser.add_argument(
         '--remote',
         action='store_true',
