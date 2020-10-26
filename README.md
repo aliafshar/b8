@@ -84,11 +84,11 @@ These are fixed for now, please raise a bug if you want to change them.
 
 | Key Press 	| Action            	|
 |-----------	|-------------------	|
-| Alt-Up    	| Previous Buffer   	|
-| Alt-Down  	| Next Buffer       	|
-| Alt-Right 	| Previous Terminal 	|
-| Alt-Left  	| Next Terminal     	|
-| Alt-t     	| New Terminal      	|
+| `Alt-Up`    | Previous Buffer   	|
+| `Alt-Down`  | Next Buffer       	|
+| `Alt-Right` | Previous Terminal 	|
+| `Alt-Left`  | Next Terminal     	|
+| `Alt-t`     | New Terminal      	|
 
 ## FAQ
 
