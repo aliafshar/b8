@@ -7,7 +7,8 @@
 
 __version__ = '0.0.12'
 
-import argparse, code, configparser, io, math, os, pwd, subprocess, sys, threading, uuid
+import argparse, code, configparser, io, math, os, pwd, subprocess, sys, \
+       threading, uuid, webbrowser
 
 # Dance, then, wherever you may be!
 import gi
@@ -408,14 +409,13 @@ class Contexts(B8Object):
   }
 
   ereg_exprs = {
-      'file2': (
-          r'"([^"]|\\")+"|' + \
-          r"'[^']+'|" + \
-          r'(\\ |\\\(|\\\)|\\=|[^]\[[:space:]"\':\$()=])+'
-      ),
       'file': (
-          r'(\H+)'
-      )
+          r'(\H+)' # anything basically
+      ),
+      'url': (
+          r'https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)'
+      ),
+
   }
 
 
@@ -635,8 +635,10 @@ class TerminalView(B8View):
 
   def create_ui(self):
     self.term = Vte.Terminal()
+    self.term.match_add_regex(self.b8.contexts.regex('url'), 0)
     self.term.match_add_regex(self.b8.contexts.regex('file'), 0)
     self.term.match_set_cursor_name(0, 'pointer')
+    self.term.match_set_cursor_name(1, 'pointer')
     self.term.connect('button-press-event', self.on_button_press_event)
     widget = Gtk.HBox()
     tools = Gtk.VBox()
@@ -703,7 +705,7 @@ class TerminalView(B8View):
     self.child_pid = pid
     t.watch_child(pid)
     self.update_label()
-    GLib.timeout_add(500, self.label_updater)
+    GLib.timeout_add(1000, self.label_updater)
     self.widget.grab_focus()
 
   def start(self, wd):
@@ -777,24 +779,28 @@ class TerminalView(B8View):
       # Fail fast if not matching.
       return
     m = m.strip()
-    if tag == 0:
+    if tag == 1:
       if not m.startswith('/'):
         m = os.path.join(self.child_cwd, m)
       if os.path.exists(m):
         selected = m
+      if not selected:
+        return
 
-    if not selected:
-      return
+      if event.button == Gdk.BUTTON_PRIMARY:
+        self.b8.show_path(selected)
+      elif event.button == Gdk.BUTTON_SECONDARY:
+        if os.path.isdir(selected):
+          action = 'directory'
+        else:
+          action = 'file'
+        menu = self.b8.contexts.menu(action, selected)
+        menu.popup(None, None, None, None, event.button, event.time)
+    elif tag == 0:
+      if not m:
+        return
+      webbrowser.open(m)
 
-    if event.button == Gdk.BUTTON_PRIMARY:
-      self.b8.show_path(selected)
-    elif event.button == Gdk.BUTTON_SECONDARY:
-      if os.path.isdir(selected):
-        action = 'directory'
-      else:
-        action = 'file'
-      menu = self.b8.contexts.menu(action, selected)
-      menu.popup(None, None, None, None, event.button, event.time)
 
   def on_link_button_clicked(self, w):
     self.linked_browser = w.get_active()
