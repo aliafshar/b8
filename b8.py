@@ -5,7 +5,7 @@
 
 """b8, Bominade Ultralight NeoVim-based IDE"""
 
-__version__ = '0.0.11'
+__version__ = '0.0.12'
 
 import argparse, code, configparser, io, math, os, pwd, subprocess, sys, threading, uuid
 
