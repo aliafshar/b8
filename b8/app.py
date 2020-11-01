@@ -8,7 +8,7 @@ gi.require_version("Gtk", "3.0")
 gi.require_version("PangoCairo", "1.0")
 gi.require_version("Vte", "2.91")
 
-import sys
+import os, sys
 from gi.repository import GLib, Gio, Gtk, Gdk
 
 from b8 import logs, configs, vim, files, buffers, terminals
@@ -80,12 +80,10 @@ class B8(Gtk.Application, logs.LoggerMixin):
     self.window.set_title(f.get_path())
 
   def _on_buffer_deleted(self, w, bnum, f):
-    print('bdel')
     self.buffers.remove(f, bnum)
 
   def _on_file_destroyed(self, w, f):
     self.vim.close_buffer(f.get_path())
-    
 
   def _on_buffer_activated(self, w, b):
     self.vim.change_buffer(b.number)
@@ -128,8 +126,8 @@ class B8(Gtk.Application, logs.LoggerMixin):
     self.window.connect('key-press-event', self._on_key_press_event)
     self._add_actions()
     self.vim.start()
-    self.terminals.create('/home/aa')
-    self.files.browse_path('/home/aa')
+    self.terminals.create(os.path.expanduser('~'))
+    self.files.browse_path(os.path.expanduser('~'))
 
   def _on_key_press_event(self, w, event):
     kn = Gdk.keyval_name(event.keyval)
