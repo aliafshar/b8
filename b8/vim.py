@@ -241,6 +241,9 @@ class Embedded(Gtk.DrawingArea, logs.LoggerMixin):
   def change_buffer(self, bnum):
     self._cmd('nvim_command', [f'b!{bnum}']);
 
+  def close_buffer(self, path):
+    self._cmd('nvim_command', [f'confirm bd{path}']);
+
   def command(self, name, *args):
     return self._cmd(name, list(args))
 

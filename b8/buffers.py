@@ -5,6 +5,9 @@
 
 """The Bominade file browser."""
 
+
+import os
+
 from gi.repository import Gio, GLib, GObject, Gdk, Gtk, GdkPixbuf, Pango
 
 from b8 import ui, vim, logs
@@ -100,13 +103,14 @@ class Buffers(Gtk.ScrolledWindow, ui.MenuHandlerMixin, logs.LoggerMixin):
     #self.b8.sessions.buffers.append(b.path)
     #self.b8.sessions.save()
 
-  def remove(self, path, number):
+  def remove(self, f, number):
     for grow in self.model:
       b = self.model.get_value(grow.iter, 0)
-      if b.number == number and b.path == path:
+      print(b.path, f.get_path())
+      if b.number == number and b.path == os.path.realpath(f.get_path()):
         self.model.remove(grow.iter)
-        self.b8.sessions.buffers.remove(b.path)
-        self.b8.sessions.save()
+        #self.b8.sessions.buffers.remove(b.path)
+        #self.b8.sessions.save()
         return
 
 

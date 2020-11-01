@@ -5,6 +5,9 @@
 import gi
 
 gi.require_version("Gtk", "3.0")
+gi.require_version("PangoCairo", "1.0")
+gi.require_version("Vte", "2.91")
+
 import sys
 from gi.repository import GLib, Gio, Gtk, Gdk
 
@@ -30,13 +33,13 @@ class B8Window(Gtk.ApplicationWindow, logs.LoggerMixin):
     lsplit.pack2(self.b8.files, resize=True, shrink=False)
     hsplit.pack1(lsplit, resize=True, shrink=False)
     hsplit.pack2(rsplit, resize=True, shrink=False)
-    hsplit.set_property('position', 200)
+    hsplit.set_property('position', 250)
     self.add(hsplit)
 
     rsplit.set_property('position', 600)
     rsplit.pack1(self.b8.vim, resize=True, shrink=False)
     rsplit.pack2(self.b8.terminals, resize=True, shrink=False)
-    self.resize(1024, 800)
+    self.resize(1024, 900)
 
 
 class B8(Gtk.Application, logs.LoggerMixin):
@@ -60,8 +63,10 @@ class B8(Gtk.Application, logs.LoggerMixin):
       w.connect('directory-activated', self._on_directory_activated)
       w.connect('file-activated', self._on_file_activated)
       w.connect('terminal-activated', self._on_terminal_activated)
+      w.connect('file-destroyed', self._on_file_destroyed)
 
     self.vim.connect('buffer-changed', self._on_buffer_changed)
+    self.vim.connect('buffer-deleted', self._on_buffer_deleted)
     self.buffers.connect('buffer-activated', self._on_buffer_activated)
 
   def _on_directory_activated(self, w, f):
@@ -73,6 +78,14 @@ class B8(Gtk.Application, logs.LoggerMixin):
   def _on_buffer_changed(self, w, bnum, f):
     self.buffers.change(f, bnum)
     self.window.set_title(f.get_path())
+
+  def _on_buffer_deleted(self, w, bnum, f):
+    print('bdel')
+    self.buffers.remove(f, bnum)
+
+  def _on_file_destroyed(self, w, f):
+    self.vim.close_buffer(f.get_path())
+    
 
   def _on_buffer_activated(self, w, b):
     self.vim.change_buffer(b.number)
