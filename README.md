@@ -53,30 +53,44 @@ virtualenv -p python3 --system-site-packages env
 Or of course if you have everything already and you dgaf just run the script:
 
 ```
-$ python3 b8.py
+$ PYTHONPATH=. python3 b8/app.py
 ```
 
 ## Manual
 
 ```
-🞄 b8 --help                                                                                                                                                                                                                                            
-usage: b8 [-h] [--remote] [--debug] [files [files ...]]
+🞄 b8 --help
 
-The bominade IDE
+usage: b8 [-h] [-d] [-f CONFIG] [--logging-level LOGGING_LEVEL] [--terminal-theme TERMINAL_THEME] [--terminal-font TERMINAL_FONT] [--shortcuts-previous-buffer SHORTCUTS_PREVIOUS_BUFFER] [--shortcuts-next-buffer SHORTCUTS_NEXT_BUFFER]
+          [--shortcuts-previous-terminal SHORTCUTS_PREVIOUS_TERMINAL] [--shortcuts-next-terminal SHORTCUTS_NEXT_TERMINAL] [--shortcuts-new-terminal SHORTCUTS_NEW_TERMINAL]
 
-positional arguments:
-  files       Files to open
+The bominade IDE, version 0.1.0
 
 optional arguments:
-  -h, --help  show this help message and exit
-  --remote    Open in a running b8
-  --debug     Debug log output
+  -h, --help            show this help message and exit
+  -d, --debug           Run with logging level debug
+  -f CONFIG, --config CONFIG
+                        Configuration file to use
+  --logging-level LOGGING_LEVEL
+                        The logging level to use
+  --terminal-theme TERMINAL_THEME
+                        The terminal theme to use
+  --terminal-font TERMINAL_FONT
+                        The terminal font to use, e.g. "Monospace 13"
+  --shortcuts-previous-buffer SHORTCUTS_PREVIOUS_BUFFER
+                        Shortcut key to switch to the previous buffer
+  --shortcuts-next-buffer SHORTCUTS_NEXT_BUFFER
+                        Shortcut key to switch to the next buffer
+  --shortcuts-previous-terminal SHORTCUTS_PREVIOUS_TERMINAL
+                        Shortcut key to switch to the previous terminal
+  --shortcuts-next-terminal SHORTCUTS_NEXT_TERMINAL
+                        Shortcut key to switch to the next terminal
+  --shortcuts-new-terminal SHORTCUTS_NEW_TERMINAL
+                        Shortcut key to create a new terminal
+
+
 ```
 
-So, you can pass file names as a positional argument to open.
-
-You can also use --remote to open a file in a running b8. Note: this is barely
-built so it only uses the first b8 instance it can find.
 
 ## Keyboard Shortcuts
 
@@ -92,10 +106,6 @@ config (see config section below).
 | `Alt-t`     | New Terminal      	|
 
 ## FAQ
-
-**Why do you ignore my guifont setting?** Raise a bug if this annoys you, but by the
-time we get that option from NeoVim things are already drawn and you get a jank
-which annoys me even more. Instead just set the font in b8's config file e.g. below.
 
 **Why is the mouse behaving stupidly?** Unlike GVim where the mouse is
 configured to be on, you have to explicitly do it for NeoVim. Instead of forcing
