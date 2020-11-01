@@ -8,7 +8,7 @@ import os
 
 from gi.repository import Gio, GLib, GObject, Gdk, Gtk, GdkPixbuf, Pango
 
-from bominade import ui
+from b8 import ui
 
 
 DEFAULT_FILE_ATTRIBUTES = '*'
@@ -38,7 +38,7 @@ class FileListItem:
     self.sort_key = f'{self.sort_prefix}_{self.name}'
 
 
-class Files(ui.Base):
+class Files(Gtk.VBox, ui.MenuHandlerMixin):
   """File browser widget."""
 
   __gtype_name__ = 'b8-files'
@@ -48,19 +48,19 @@ class Files(ui.Base):
     'file-activated': (GObject.SignalFlags.RUN_FIRST, None, (Gio.File,)),
     'file-destroyed': (GObject.SignalFlags.RUN_FIRST, None, (Gio.File,)),
     'terminal-activated': (GObject.SignalFlags.RUN_FIRST, None, (Gio.File,)),
+    'directory-activated': (GObject.SignalFlags.RUN_FIRST, None, (Gio.File,)),
   }
 
   directory = GObject.Property(type=Gio.File)
   show_hidden = GObject.Property(type=bool, default=False)
 
-  def create_ui(self):
+  def __init__(self):
     """Generate the user interface."""
-    b = Gtk.VBox()
-    self.add(b)
+    Gtk.VBox.__init__(self)
     self.title = self.create_title_label()
-    b.pack_start(self.create_toolbar(), False, False, 0)
+    self.pack_start(self.create_toolbar(), False, False, 0)
     c = Gtk.ScrolledWindow()
-    b.pack_start(c, True, True, 0)
+    self.pack_start(c, True, True, 0)
     self.model = self.create_model()
     self.tree = self.create_tree(self.model)
     c.add(self.tree)
@@ -206,7 +206,7 @@ class Files(ui.Base):
     mods = {}
     cols = {
       'M': ui.Colors.RED,
-      '??': ui.Colors.ORANGE,
+      '??': ui.Colors.GREEN,
     }
     for line in d:
       line = line.strip().rstrip('/')
@@ -241,24 +241,6 @@ class Files(ui.Base):
     f = getattr(self, fname)
     f(b)
 
-  def on_open_activate(self, w, gfile):
-    self.emit('file-activated', gfile)
-
-  def on_browseparent_activate(self, w, gfile):
-    self.browse(gfile.get_parent())
-
-  def on_terminalparent_activate(self, w, gfile):
-    self.emit('terminal-activated', gfile.get_parent())
-
-  def on_close_activate(self, w, gfile):
-    self.emit('file-destroyed', gfile)
-
-  def on_browse_activate(self, w, gfile):
-    self.browse(gfile)
-
-  def on_terminal_activate(self, w, gfile):
-    self.emit('terminal-activated', gfile)
-
   def on_up_clicked(self, b):
     parent = self.directory.get_parent()
     if parent:
@@ -271,11 +253,14 @@ class Files(ui.Base):
     self.show_hidden = b.get_active()
     self.refresh()
 
+  def on_refresh_clicked(self, b):
+    self.refresh()
+
   def on_row_activated(self, w, path, column):
     giter = self.model.get_iter(path)
     f = self.model.get_value(giter, 0)
     if f.is_directory:
-      self.browse(f.file)
+      self.emit('directory-activated', f.file)
     else:
       child = self.directory.get_child(f.name)
       self.emit('file-activated', child)
@@ -293,7 +278,7 @@ class Files(ui.Base):
       menu = ui.DirectoryPopupMenu(f.file)
     else:
       menu = ui.FilePopupMenu(f.file, suppress=['browseparent'])
-    menu.connect('activate', self.on_menu_activate)
+    menu.connect('activate', self._on_menu_activate)
     menu.popup(event)
     return True
 
@@ -322,12 +307,17 @@ if __name__ == '__main__':
   def directory_changed(w, f):
     print('directory-changed', w, f, f.get_path())
 
+  def directory_activated(w, f):
+    print('directory activate')
+    w.browse(f)
+
   def file_destroyed(w, f):
     print('file-destroyed', w, f, f.get_path())
 
   fs.connect('terminal-activated', term_activated)
   fs.connect('file-activated', file_activated)
   fs.connect('directory-changed', directory_changed)
+  fs.connect('directory-activated', directory_activated)
   fs.connect('file-destroyed', file_destroyed)
 
 

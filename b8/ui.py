@@ -4,6 +4,8 @@
 
 """The Bominade basic widgets."""
 
+import os
+
 from typing import Iterable
 
 from gi.repository import Gio, GLib, GObject, Gdk, Gtk
@@ -68,7 +70,7 @@ class MiniToolbar(Gtk.Box):
   }
 
   def __init__(self, buttons: Iterable[Gtk.Widget], orientation: Gtk.Orientation, spacing: int=0):
-    Gtk.Box.__init__(self, orientation, spacing)
+    Gtk.Box.__init__(self, orientation=orientation, spacing=spacing)
     for b in buttons:
       if hasattr(b, 'key'):
         b.connect('clicked', self.on_clicked)
@@ -213,6 +215,40 @@ class DirectoryPopupMenu(FilesystemPopupMenu):
     ]
 
 
+class MenuHandlerMixin:
+
+  def _on_menu_activate(self, w, m, key, gfile):
+    keyhandlers = {
+        'open': self._on_open_activate,
+        'browseparent': self._on_browseparent_activate,
+        'terminalparent': self._on_terminalparent_activate,
+        'close': self._on_close_activate,
+        'browse': self._on_browse_activate,
+        'terminal': self._on_terminal_activate,
+    }
+    f = keyhandlers.get(key)
+    if f:
+      f(m, gfile)
+
+  def _on_open_activate(self, w, gfile):
+    self.emit('file-activated', gfile)
+
+  def _on_browseparent_activate(self, w, gfile):
+    self.emit('directory-activated', gfile.get_parent())
+
+  def _on_terminalparent_activate(self, w, gfile):
+    self.emit('terminal-activated', gfile.get_parent())
+
+  def _on_close_activate(self, w, gfile):
+    self.emit('file-destroyed', gfile)
+
+  def _on_browse_activate(self, w, gfile):
+    self.emit('directory-activated', gfile)
+
+  def _on_terminal_activate(self, w, gfile):
+    self.emit('terminal-activated', gfile)
+
+
 
 def parse_color(s: str) -> Gdk.RGBA:
   """Parse a color string."""
@@ -227,3 +263,5 @@ class Colors:
   RED = parse_color('#d30102')
   ORANGE = parse_color('#cb4b16')
   GREEN = parse_color('#859900')
+
+

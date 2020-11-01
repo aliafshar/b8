@@ -2,14 +2,49 @@
 # MIT License. See LICENSE.
 # vim: ft=python sw=2 ts=2 sts=2 tw=80
 
-"""Embeddable NeoVim for PyGTK."""
+"""Embeddable NeoVim for PyGTK.
+
+This module can be used entirely on its own separate from B8. This is a basic
+requirement of the thing. It is also a clean-room implementation as it uses
+NeoVim's `ext_linegrid` as the older methods are depracated and the existing
+PyGTK widget for NeoVim uses the depracated method.
+
+Consider the bare minimum script:
+
+```
+w = Gtk.Window()
+w.connect('destroy', Gtk.main_quit)
+w.resize(800, 600)
+
+vim = Embedded()
+w.add(vim)
+
+
+def on_vim_started(widget):
+  # Show the window once Vim has started and given use the right Gui options,
+  # i.e. the font.
+  w.show_all()
+
+# the `started` signal tells us Vim is up and running and configured enough to
+# display.
+vim.connect('started', on_vim_started)
+
+Gtk.main()
+```
+
+The startup flow is a bit annoying because we don't want to display the widget
+until Vim is started and has told us the value of `guifont` otherwise we will
+guess a size of the Vim grid and then have tor esize in front of the user which
+will be janky at least. In reality it's worse than just jank. We don't have
+enough data to render a widget so we'd have to just show a blank screen.
+"""
 
 from typing import Iterable, List
 import msgpack
 from gi.repository import Gio, GLib, GObject, Gdk, Gtk, Pango, PangoCairo
 import cairo
 
-from bominade import ui
+from b8 import ui, logs
 
 
 class Grid:
@@ -20,13 +55,6 @@ class Grid:
     self.height = height
     self.cells = [[Cell() for col in range(self.width)] for col in
         range(self.height)]
-
-  def clone(self):
-    g = Grid(self.width, self.height)
-    for (row, orow) in zip(self.cells, g.cells):
-      for (cell, ocell) in zip(row, orow):
-        cell.copy_to(ocell)
-    return g
 
 
 class Cell:
@@ -45,7 +73,7 @@ class Cell:
 class Mode(GObject.GObject):
   """Information about a NeoVim mode."""
 
-  __gtypename__ = 'b8-vim-modeinfo'
+  __gtype_name__ = 'b8-vim-modeinfo'
 
   name = GObject.Property(type=str)
 
@@ -96,7 +124,7 @@ class Color:
 
 class Cursor(GObject.GObject):
 
-  __gtypename__ = 'b8-vim-cursorposition'
+  __gtype_name__ = 'b8-vim-cursorposition'
 
   x = GObject.Property(type=int, default=0)
   y = GObject.Property(type=int, default=0)
@@ -112,37 +140,73 @@ class Cursor(GObject.GObject):
 
 class Buffer(GObject.GObject):
 
-  __gtypename__ = 'b8-vim-buffer'
+  __gtype_name__ = 'b8-vim-buffer'
 
   number = GObject.Property(type=int)
   file = GObject.Property(type=Gio.File)
 
-  def __init__(self, number, path=None):
+  def __init__(self, number, file):
     GObject.GObject.__init__(self)
     self.number = number
-    self.path = path
+    self.file = file
+    self.path = file.get_path()
+    self.parent = file.get_parent()
+    self.name = file.get_basename()
+    self.ename = GLib.markup_escape_text(self.name)
+    self.eparent = GLib.markup_escape_text(self.parent.get_path())
+    self.markup = (f'<span size="medium" weight="bold">{self.ename}</span>\n'
+                   f'<span size="x-small">{self.parent.get_path()}</span>')
+
+  @classmethod
+  def from_ext_hook(cls, ext_data):
+    """Alternative constructor from msgpack protocol."""
+    return cls(msgpack.unpackb(ext_data), None)
 
 
-class Embedded(Gtk.DrawingArea):
+class Result(GObject.GObject):
 
-  __gtypename__ = 'b8-vim'
+  __gtype_name__ = 'b8-vim-result'
+
+  __gsignals__ = {
+      'success': (GObject.SignalFlags.RUN_FIRST, None, (object,)),
+      'error': (GObject.SignalFlags.RUN_FIRST, None, (object,)),
+  }
+
+  def __init__(self, cid, name, args):
+    GObject.GObject.__init__(self)
+    self.cid = cid
+    self.name = name
+    self.args = args
+
+  def respond(self, cid, error, success):
+    if error:
+      self.emit('error', error)
+    else:
+      self.emit('success', success)
+
+
+class Embedded(Gtk.DrawingArea, logs.LoggerMixin):
+
+  __gtype_name__ = 'b8-vim'
 
   __gsignals__ = {
       'ready': (GObject.SignalFlags.RUN_FIRST, None, ()),
       'exited': (GObject.SignalFlags.RUN_FIRST, None, ()),
-      'buffer-changed': (GObject.SignalFlags.RUN_FIRST, None, (int, str,)),
-      'buffer-deleted': (GObject.SignalFlags.RUN_FIRST, None, (int, str,)),
+      'buffer-changed': (GObject.SignalFlags.RUN_FIRST, None, (int, Gio.File,)),
+      'buffer-deleted': (GObject.SignalFlags.RUN_FIRST, None, (int, Gio.File,)),
       'mode-changed': (GObject.SignalFlags.RUN_FIRST, None, (Mode,)),
+      'cursor-changed': (GObject.SignalFlags.RUN_FIRST, None, (Cursor,)),
   }
 
   cursor = GObject.Property(type=Cursor, default=Cursor(0, 0))
   width = GObject.Property(type=int, default=20)
   height = GObject.Property(type=int, default=20)
-  command_id = GObject.Property(type=int, default=0)
+  cid = GObject.Property(type=int, default=0)
   mode = GObject.Property(type=Mode)
 
   def __init__(self):
     Gtk.DrawingArea.__init__(self)
+    logs.LoggerMixin.__init__(self)
     self.unpacker = msgpack.Unpacker(ext_hook=self._ext_hook)
     self.options = {}
     self.highlights = {}
@@ -175,25 +239,32 @@ class Embedded(Gtk.DrawingArea):
     self._cmd('nvim_command', [f'e!{path}']);
 
   def change_buffer(self, bnum):
-    self._cmd('nvim_command', [f'b!{number}']);
+    self._cmd('nvim_command', [f'b!{bnum}']);
+
+  def command(self, name, *args):
+    return self._cmd(name, list(args))
+
+  def start(self):
+    self._start()
 
   def _ext_hook(self, ext_type, ext_data):
+    """Called when NeoVim sends extended type information."""
     if ext_type == 0:
-      return Buffer(msgpack.unpackb(ext_data))
+      return Buffer.from_ext_hook(ext_data)
 
   def _generate_message(self, name: str, args: list):
-    self.command_id = (self.command_id + 1) % 256
-    return [0, self.command_id, name, args]
+    self.cid = (self.cid + 1) % 256
+    return [0, self.cid, name, args]
 
   def _serialize_message(self, msg: list) -> str:
     return msgpack.dumps(msg)
 
-  def _cmd(self, name: str, args: list, callback=None) -> int:
+  def _cmd(self, name: str, args: list) -> int:
     msg = self._generate_message(name, args)
     d = self._serialize_message(msg)
     self.vim_in.write_all(d, None)
-    self.pending_commands[self.command_id] = callback
-    return self.command_id
+    r = self.pending_commands[self.cid] = Result(self.cid, name, args)
+    return r
 
   def _out_callback(self, *args):
     if self.vim_out.is_readable():
@@ -212,9 +283,9 @@ class Embedded(Gtk.DrawingArea):
 
   def _reply_callback(self, msg):
     rid, err, result = msg
-    callback = self.pending_commands.pop(rid)
-    if callback:
-      callback(result, err)
+    result = self.pending_commands.pop(rid)
+    result.respond(rid, err, result)
+    self.debug(f'reply {msg}')
 
   def _notification_callback(self, msg):
     msg_handlers = {
@@ -229,22 +300,23 @@ class Embedded(Gtk.DrawingArea):
     if not path:
       return
     bnum = int(bs)
+    gf = Gio.File.new_for_path(path)
     msg_handlers = {
         'enter': self._buffers_enter_callback,
         'delete': self._buffers_delete_callback,
     }
     f = msg_handlers.get(action)
     if f:
-      f(bnum, path)
+      f(bnum, gf)
     else:
       print('unhandled buffers', msg)
     print('buffers', msg)
 
-  def _buffers_enter_callback(self, bnum, path):
-    self.emit('buffer-changed', bnum, path)
+  def _buffers_enter_callback(self, bnum, f):
+    self.emit('buffer-changed', bnum, f)
   
-  def _buffers_delete_callback(self, bnum, path):
-    self.emit('buffer-deleted', bnum, path)
+  def _buffers_delete_callback(self, bnum, f):
+    self.emit('buffer-deleted', bnum, f)
   
   def _system_callback(self, msg):
     action = msg[0]
@@ -258,9 +330,11 @@ class Embedded(Gtk.DrawingArea):
       print('unhandled system', msg)
 
   def _system_leave_callback(self):
+    """Called for a Vim VimLeave notification."""
     self.emit('exited')
 
   def _redraw_callback(self, msgs):
+    """Called for a Vim redraw notification."""
     msg_handlers = {
         'grid_resize': self._grid_resize_callback,
         'option_set': self._option_set_callback,
@@ -278,7 +352,7 @@ class Embedded(Gtk.DrawingArea):
       if f:
         f(*msg[1:])
       else:
-        print('unhandled', msg[0], len(msg))
+        self.debug(f'redraw unhandled {msg[0]}, {len(msg)}')
 
   def _grid_resize_callback(self, msg):
     gid, cols, rows = msg
@@ -398,7 +472,6 @@ class Embedded(Gtk.DrawingArea):
     self.cell_width, self.cell_height = layout.get_pixel_size()
 
   def _on_size_allocate(self, w, alloc):
-    print('size-allocate')
     self.width = int(alloc.width / self.cell_width)
     self.height = int(alloc.height / self.cell_height)
     self._vim_resize()
@@ -407,8 +480,6 @@ class Embedded(Gtk.DrawingArea):
     self.pango_layout = PangoCairo.create_layout(w.get_window().cairo_create())
     self.pango_layout.set_alignment(Pango.Alignment.LEFT)
     self.pango_layout.set_font_description(self.font_desc)
-    #self.drawing_area.queue_draw()
-    #self.drawing_area.grab_focus()
 
   def _on_key_press_event(self, widget, event, *args):
     key_name = Gdk.keyval_name(event.keyval)
@@ -431,7 +502,7 @@ class Embedded(Gtk.DrawingArea):
       input_str = self._key_input(input_str, event.state)
 
 
-    print(f'keypress chr:{input_str} '
+    self.debug(f'keypress chr:{input_str} '
                f'utf8:{repr(utf8)} '
                f'name:{key_name} '
                f'state:{event.state}')
@@ -480,18 +551,16 @@ class Embedded(Gtk.DrawingArea):
 
 
   def _on_focus_in_event(self, widget, event):
-    print('focus in')
     self.queue_draw()
 
   def _on_focus_out_event(self, widget, event):
-    print('focus out')
     self.queue_draw()
 
   def _on_notify_mode(self, w, prop):
     self.emit('mode-changed', self.mode)
 
   def _on_notify_cursor(self, w, prop):
-    print('cursor changed', self.cursor)
+    self.emit('cursor-changed', self.cursor)
 
   def _parse_mouse(self, event):
     col = int(event.x / self.cell_width)
@@ -587,22 +656,12 @@ class Embedded(Gtk.DrawingArea):
       True}])
 
   def _vim_subscribe(self):
-    self._cmd('nvim_command', [
-      'autocmd BufAdd * call rpcnotify(0, "buffers", "add", expand("<abuf>"), expand("<amatch>"))'
-    ]);
-    self._cmd('nvim_command', [
-      'autocmd BufEnter * call rpcnotify(0, "buffers", "enter", expand("<abuf>"), expand("<amatch>"))'
-    ]);
-
-    self._cmd('nvim_command', [
-      'autocmd BufDelete * call rpcnotify(0, "buffers", "delete", expand("<abuf>"), expand("<amatch>"))'
-    ]);
-    self._cmd('nvim_subscribe', ['buffers']);
-
-    self._cmd('nvim_command', [
-      'autocmd VimLeave * call rpcnotify(0, "system", "leave")'
-    ]);
-    self._cmd('nvim_subscribe', ['system']);
+    types = set()
+    for sig in VIM_SIGNALS:
+      self._cmd('nvim_command', [VIM_SIGNAL_TEMPLATE.format(*sig)])
+      types.add(sig[1])
+    for t in types:
+      self._cmd('nvim_subscribe', [t]);
 
 
   def _vim_resize(self):
@@ -613,6 +672,16 @@ class Embedded(Gtk.DrawingArea):
 
   def _vim_input_mouse(self, button, action, modifier, row, col):
     self._cmd('nvim_input_mouse', [button, action, modifier, 0, row, col])
+
+
+VIM_SIGNAL_TEMPLATE = 'autocmd {} * call rpcnotify(0, "{}", "{}", {})'
+
+VIM_SIGNALS = [
+    ('BufAdd', 'buffers', 'add', 'expand("<abuf>"), expand("<amatch>")'),
+    ('BufEnter', 'buffers', 'enter', 'expand("<abuf>"), expand("<amatch>")'),
+    ('BufDelete', 'buffers', 'delete', 'expand("<abuf>"), expand("<amatch>")'),
+    ('VimLeave', 'system', 'leave', ''),
+]
 
 
 
@@ -658,12 +727,12 @@ if __name__ == '__main__':
   v = Embedded()
   w.add(v)
 
-  def on_list_bufs(bufs, err):
-    print(['onlistbugs', bufs, err])
+  def on_list_bufs(r, bufs):
+    print(['onlistbufs', bufs])
 
   def on_buffer_changed(e, bnum, path):
     print('buffer changed', bnum, path)
-    v._cmd('nvim_list_bufs', [], callback=on_list_bufs)
+    v.command('nvim_list_bufs').connect('success', on_list_bufs)
 
   def on_buffer_deleted(e, bnum, path):
     print('buffer deleted', bnum, path)
@@ -680,7 +749,6 @@ if __name__ == '__main__':
   v.connect('exited', on_exited)
   v.connect('mode-changed', on_mode)
 
-
   def on_vim_started(e):
     w.show_all()
     print('ready', w)
@@ -692,6 +760,16 @@ if __name__ == '__main__':
   v._start()
 
 
+  #GLib.log_writer_standard_streams(
+  #    GLib.LogLevelFlags.LEVEL_INFO)
+
+  #s = GLib.String()
+  #s.append('ffs')
+
+  #field = GLib.LogField()
+  #field.key = 'msg'
+  #field.value = s
+  #GLib.log_structured_array(GLib.LogLevelFlags.LEVEL_INFO, [field])
   #v._cmd('blah', [1,2,3])
 
   Gtk.main()
