@@ -12,7 +12,7 @@ description-file = "README.md"
 requires-python = ">=3.5"
 
 [tool.flit.scripts]
-b8 = "b8:main"
+b8 = "b8.app:main"
 
 [tool.flit.sdist]
 exclude = [
