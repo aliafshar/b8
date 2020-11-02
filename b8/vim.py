@@ -109,7 +109,7 @@ class Highlight:
 
 
 class Color:
-  """BeoVim color with conversion to RGB"""
+  """NeoVim color with conversion to RGB"""
 
   def __init__(self, color_value):
     self.r = ((color_value >> 16) & 255) / 256.0
