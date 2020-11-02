@@ -11,26 +11,24 @@ PyGTK widget for NeoVim uses the depracated method.
 
 Consider the bare minimum script:
 
-```
-w = Gtk.Window()
-w.connect('destroy', Gtk.main_quit)
-w.resize(800, 600)
+    w = Gtk.Window()
+    w.connect('destroy', Gtk.main_quit)
+    w.resize(800, 600)
 
-vim = Embedded()
-w.add(vim)
+    vim = Embedded()
+    w.add(vim)
 
 
-def on_vim_started(widget):
-  # Show the window once Vim has started and given use the right Gui options,
-  # i.e. the font.
-  w.show_all()
+    def on_vim_started(widget):
+      # Show the window once Vim has started and given use the right Gui options,
+      # i.e. the font.
+      w.show_all()
 
-# the `started` signal tells us Vim is up and running and configured enough to
-# display.
-vim.connect('started', on_vim_started)
+    # the `started` signal tells us Vim is up and running and configured enough to
+    # display.
+    vim.connect('started', on_vim_started)
 
-Gtk.main()
-```
+    Gtk.main()
 
 The startup flow is a bit annoying because we don't want to display the widget
 until Vim is started and has told us the value of `guifont` otherwise we will
