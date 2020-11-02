@@ -47,7 +47,7 @@ class B8(Gtk.Application, logs.LoggerMixin):
   __gtype_name__ = 'b8-app'
 
   def __init__(self):
-    Gtk.Application.__init__(self,  application_id='dev.bominade',
+    Gtk.Application.__init__(self,
             flags=Gio.ApplicationFlags.FLAGS_NONE)
     logs.LoggerMixin.__init__(self)
     self.config = configs.Config()
