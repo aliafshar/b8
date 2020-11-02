@@ -9,17 +9,17 @@ gi.require_version("PangoCairo", "1.0")
 gi.require_version("Vte", "2.91")
 
 import os, sys
-from gi.repository import GLib, Gio, Gtk, Gdk
+from gi.repository import GObject, GLib, Gio, Gtk, Gdk
 
 from b8 import logs, configs, vim, files, buffers, terminals
 
 
-class B8Window(Gtk.ApplicationWindow, logs.LoggerMixin):
+class B8Window(Gtk.Window, logs.LoggerMixin):
 
   __gtype_name__ = 'b8-app-window'
 
   def __init__(self, b8):
-    Gtk.ApplicationWindow.__init__(self, application=b8)
+    Gtk.Window.__init__(self)
     logs.LoggerMixin.__init__(self)
     self.b8 = b8
     self.set_icon_name('media-seek-forward')
@@ -41,26 +41,27 @@ class B8Window(Gtk.ApplicationWindow, logs.LoggerMixin):
     rsplit.pack2(self.b8.terminals, resize=True, shrink=False)
     self.resize(1024, 900)
 
+    self.connect('delete-event', self.b8._on_delete_event)
 
-class B8(Gtk.Application, logs.LoggerMixin):
+
+class B8(GObject.GObject, logs.LoggerMixin):
 
   __gtype_name__ = 'b8-app'
 
   def __init__(self):
-    Gtk.Application.__init__(self,
-            flags=Gio.ApplicationFlags.FLAGS_NONE)
+    GObject.GObject.__init__(self)
     logs.LoggerMixin.__init__(self)
     self.config = configs.Config()
     self._add_actions()
     self.vim = vim.Embedded()
     self.vim.connect('ready', self._on_vim_ready)
+    self.vim.connect('exited', self._on_vim_exited)
     self.buffers = buffers.Buffers()
     self.files = files.Files()
     self.terminals = terminals.Terminals(
         font=self.config.get(('terminal', 'font')),
         theme=self.config.get(('terminal', 'theme')),
     )
-    self.connect('activate', self._on_activate)
 
     for w in [self.buffers, self.files, self.terminals]:
       w.connect('directory-activated', self._on_directory_activated)
@@ -123,15 +124,6 @@ class B8(Gtk.Application, logs.LoggerMixin):
   def _on_prevbuffer_activate(self):
     self.buffers.prev()
 
-  def _on_activate(self, w):
-    self.debug('activating')
-    self.window = B8Window(self)
-    self.window.connect('key-press-event', self._on_key_press_event)
-    self._add_actions()
-    self.vim.start()
-    self.terminals.create(os.path.expanduser('~'))
-    self.files.browse_path(os.path.expanduser('~'))
-
   def _on_key_press_event(self, w, event):
     kn = Gdk.keyval_name(event.keyval)
     if kn in vim.MODIFIER_NAMES:
@@ -149,6 +141,29 @@ class B8(Gtk.Application, logs.LoggerMixin):
     self.window.show_all()
     self.vim.grab_focus()
     self.window.present()
+
+  def _on_vim_exited(self, w):
+    self.debug('goodbye, b8 ♡ u')
+    Gtk.main_quit()
+
+  def _on_delete_event(self, wi, event):
+    self.quit()
+    return True
+
+  def run(self):
+    self.debug('activating')
+    self.window = B8Window(self)
+    self.window.connect('key-press-event', self._on_key_press_event)
+    self._add_actions()
+    self.vim.start()
+    self.terminals.create(os.path.expanduser('~'))
+    self.files.browse_path(os.path.expanduser('~'))
+    Gtk.main()
+
+  def quit(self):
+    self.terminals.shutdown()
+    self.vim.quit()
+
 
 
 def main():

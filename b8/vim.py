@@ -209,6 +209,8 @@ class Embedded(Gtk.DrawingArea, logs.LoggerMixin):
   height = GObject.Property(type=int, default=20)
   cid = GObject.Property(type=int, default=0)
   mode = GObject.Property(type=Mode)
+  proc = GObject.Property(type=Gio.Subprocess)
+  source = GObject.Property(type=GLib.Source)
 
   button_drag = False
   button_pressed = False
@@ -244,6 +246,10 @@ class Embedded(Gtk.DrawingArea, logs.LoggerMixin):
     self.connect('scroll-event', self._on_scroll_event)
     self.connect('notify::mode', self._on_notify_mode)
     self.connect('notify::cursor', self._on_notify_cursor)
+
+  def quit(self):
+    self.debug('quitting')
+    self._cmd('nvim_command', ['q!']);
 
   def open_buffer(self, path):
     self._cmd('nvim_command', [f'e!{path}']);
@@ -469,14 +475,14 @@ class Embedded(Gtk.DrawingArea, logs.LoggerMixin):
     self.queue_draw()
 
   def _start(self):
-    p = Gio.Subprocess.new(['nvim', '--embed'],
+    self.proc = Gio.Subprocess.new(['nvim', '--embed'],
         Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE |
         Gio.SubprocessFlags.STDIN_PIPE)
-    self.vim_in = p.get_stdin_pipe()
-    self.vim_out = p.get_stdout_pipe()
-    source = self.vim_out.create_source()
-    source.set_callback(self._out_callback)
-    source.attach(None)
+    self.vim_in = self.proc.get_stdin_pipe()
+    self.vim_out = self.proc.get_stdout_pipe()
+    self.source = self.vim_out.create_source()
+    self.source.set_callback(self._out_callback)
+    self.source.attach(None)
 
     self._vim_attach()
     self._vim_subscribe()

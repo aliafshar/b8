@@ -36,7 +36,12 @@ class CwdDiscovery(GObject.GObject):
     self.running = False
 
   def refresh(self):
-    l = Gio.File.new_for_path(self.proclink).query_info('*', 0, None)
+    try:
+     l = Gio.File.new_for_path(self.proclink).query_info('*', 0, None)
+    except GLib.Error:
+      self.stop()
+      return False
+      
     new = Gio.File.new_for_path(l.get_symlink_target())
     if not self.cwd or (new.get_path() != self.cwd.get_path()):
       self.cwd = new
@@ -99,12 +104,11 @@ class Terminals(Gtk.Notebook, ui.MenuHandlerMixin):
   def create(self, wd=None):
     if not wd:
       wd = os.path.expanduser('~')
-    t = Terminal(self)
+    t = Terminal()
     t.term.set_font(self.font)
     t.apply_theme(self.theme)
     t.start(wd)
     self.append(t)
-    #self.pack_start(t, True, True, 0)
 
   def append(self, t):
     pagenum = self.append_page(t, t.label)
@@ -131,6 +135,20 @@ class Terminals(Gtk.Notebook, ui.MenuHandlerMixin):
     if hasattr(p, 'term'):
       p = p.term
     p.grab_focus()
+
+  def remove_terminal(self, t):
+    if not self.get_n_pages():
+      self.create()
+
+  def shutdown(self):
+    print('shutdown', self.get_children())
+    for child in self.get_children():
+      child.term.disconnect(child.exited_handler)
+      if child.pid > 0:
+        os.kill(child.pid, 15)
+
+
+
     
 
 
@@ -145,10 +163,10 @@ class Terminal(Gtk.HBox):
   label = GObject.Property(type=Gtk.Label)
   pid = GObject.Property(type=int)
   cwd = GObject.Property(type=Gio.File)
+  exited_handler = GObject.Property(type=int)
 
-  def __init__(self, parent):
+  def __init__(self):
     Gtk.HBox.__init__(self)
-    self.parent = parent
     self.term = Vte.Terminal()
     sw = Gtk.ScrolledWindow()
     sw.add(self.term)
@@ -157,6 +175,7 @@ class Terminal(Gtk.HBox):
     self._add_matches()
     self.label = self._create_tab_label()
     self.term.connect('button-press-event', self._on_button_press_event)
+    self.exited_handler = self.term.connect('child-exited', self._on_child_exited)
 
   def _create_tab_label(self):
     self.label = Gtk.Label()
@@ -226,7 +245,7 @@ class Terminal(Gtk.HBox):
       f(b)
 
   def _on_browse_clicked(self, w):
-    self.parent.emit('directory-activated', self.cwd)
+    self.get_parent().emit('directory-activated', self.cwd)
 
   def _on_copy_clicked(self, w):
     self.term.copy_clipboard_format(Vte.Format.TEXT)
@@ -238,7 +257,7 @@ class Terminal(Gtk.HBox):
     self.term.select_all()
 
   def _on_terminal_clicked(self, w):
-    self.parent.emit('terminal-activated', self.cwd)
+    self.get_parent().emit('terminal-activated', self.cwd)
 
   def _add_matches(self):
     self.url_match = self.term.match_add_regex(URL_RE, 0)
@@ -315,22 +334,36 @@ class Terminal(Gtk.HBox):
       return
     if f.query_file_type(0, None) == Gio.FileType.DIRECTORY:
       if event.button == Gdk.BUTTON_PRIMARY:
-        self.parent.emit('directory-activated', f)
+        self.get_parent().emit('directory-activated', f)
       elif event.button == Gdk.BUTTON_SECONDARY:
         menu = ui.DirectoryPopupMenu(f)
-        menu.connect('activate', self.parent._on_menu_activate)
+        menu.connect('activate', self.get_parent()._on_menu_activate)
         menu.popup(event)
     else:
       if event.button == Gdk.BUTTON_PRIMARY:
-        self.parent.emit('file-activated', f)
+        self.get_parent().emit('file-activated', f)
       elif event.button == Gdk.BUTTON_SECONDARY:
         menu = ui.FilePopupMenu(f)
-        menu.connect('activate', self.parent._on_menu_activate)
+        menu.connect('activate', self.get_parent()._on_menu_activate)
         menu.popup(event)
 
   def _on_match_url_click(self, m, event):
     webbrowser.open(m)
 
+  def _on_child_exited(self, t, status):
+    self.pid = -1
+    t.feed(f'\x1b[0;1;34mExited, '
+                   f'status: \x1b[0;1;31m{status} \r\n'
+                   f'\x1b[0mpress enter to close'.encode('utf-8'))
+    t.connect('key-press-event', self._on_keypress_after_exit)
+
+  def _on_keypress_after_exit(self, t, event):
+    key_name = Gdk.keyval_name(event.keyval)
+    if key_name == 'Return':
+      self.close()
+
+  def close(self):
+    self.get_parent().remove_terminal(self)
 
 
 # https://github.com/luvit/pcre2/blob/master/src/pcre2.h.in
