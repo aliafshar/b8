@@ -57,7 +57,8 @@ class B8(Gtk.Application, logs.LoggerMixin):
     self.buffers = buffers.Buffers()
     self.files = files.Files()
     self.terminals = terminals.Terminals(
-        font=self.config.get(('terminal', 'font'))
+        font=self.config.get(('terminal', 'font')),
+        theme=self.config.get(('terminal', 'theme')),
     )
     self.connect('activate', self._on_activate)
 

@@ -52,11 +52,10 @@ class CwdDiscovery(GObject.GObject):
 
 class TerminalTheme(GObject.GObject):
 
-  def __init__(self):
+  def __init__(self, name):
     GObject.GObject.__init__(self)
     self.default_theme = TERMINAL_THEMES.get('b8')
-    #theme_name = self.b8.config.get('terminal', 'theme')
-    raw_theme = TERMINAL_THEMES.get('b8')
+    raw_theme = TERMINAL_THEMES.get(name)
     if not raw_theme:
       self.error(f'theme {theme_name} does not exist, using default')
       raw_theme = self.default_theme
@@ -90,18 +89,19 @@ class Terminals(Gtk.Notebook, ui.MenuHandlerMixin):
     'directory-activated': (GObject.SignalFlags.RUN_FIRST, None, (Gio.File,)),
   }
 
-  def __init__(self, font):
+  def __init__(self, font, theme):
     Gtk.Notebook.__init__(self)
-    self.theme = TerminalTheme()
     self.set_tab_pos(Gtk.PositionType.BOTTOM)
     self.set_scrollable(True)
     self.font = Pango.font_description_from_string(font)
+    self.theme = TerminalTheme(theme)
 
   def create(self, wd=None):
     if not wd:
       wd = os.path.expanduser('~')
     t = Terminal(self)
     t.term.set_font(self.font)
+    t.apply_theme(self.theme)
     t.start(wd)
     self.append(t)
     #self.pack_start(t, True, True, 0)
@@ -155,7 +155,6 @@ class Terminal(Gtk.HBox):
     self.pack_start(sw, True, True, 0)
     self.pack_start(self._create_toolbar(), False, False, 0)
     self._add_matches()
-    self._set_theme(parent.theme)
     self.label = self._create_tab_label()
     self.term.connect('button-press-event', self._on_button_press_event)
 
@@ -168,7 +167,7 @@ class Terminal(Gtk.HBox):
   def _update_label(self):
     self.label.set_markup(self._markup())
 
-  def _set_theme(self, theme):
+  def apply_theme(self, theme):
     self.term.set_colors(theme.foreground, theme.background, theme.palette)
     self.term.set_color_cursor(theme.cursor)
     self.term.set_color_cursor_foreground(theme.cursor)
