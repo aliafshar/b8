@@ -90,16 +90,18 @@ class Terminals(Gtk.Notebook, ui.MenuHandlerMixin):
     'directory-activated': (GObject.SignalFlags.RUN_FIRST, None, (Gio.File,)),
   }
 
-  def __init__(self):
+  def __init__(self, font):
     Gtk.Notebook.__init__(self)
     self.theme = TerminalTheme()
     self.set_tab_pos(Gtk.PositionType.BOTTOM)
     self.set_scrollable(True)
+    self.font = Pango.font_description_from_string(font)
 
   def create(self, wd=None):
     if not wd:
       wd = os.path.expanduser('~')
     t = Terminal(self)
+    t.term.set_font(self.font)
     t.start(wd)
     self.append(t)
     #self.pack_start(t, True, True, 0)
@@ -305,6 +307,7 @@ class Terminal(Gtk.HBox):
       f(m, event)
 
   def _on_match_fs_click(self, m, event):
+    m = os.path.expanduser(m)
     if m.startswith('/'):
       f = Gio.File.new_for_path(m)
     else:

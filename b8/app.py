@@ -56,7 +56,9 @@ class B8(Gtk.Application, logs.LoggerMixin):
     self.vim.connect('ready', self._on_vim_ready)
     self.buffers = buffers.Buffers()
     self.files = files.Files()
-    self.terminals = terminals.Terminals()
+    self.terminals = terminals.Terminals(
+        font=self.config.get(('terminal', 'font'))
+    )
     self.connect('activate', self._on_activate)
 
     for w in [self.buffers, self.files, self.terminals]:
