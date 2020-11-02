@@ -207,7 +207,7 @@ class Embedded(Gtk.DrawingArea, logs.LoggerMixin):
   def __init__(self):
     Gtk.DrawingArea.__init__(self)
     logs.LoggerMixin.__init__(self)
-    self.unpacker = msgpack.Unpacker(ext_hook=self._ext_hook)
+    self.unpacker = msgpack.Unpacker(ext_hook=self._ext_hook, raw=False)
     self.options = {}
     self.highlights = {}
     self.mode = None
