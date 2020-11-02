@@ -26,9 +26,14 @@ class FileListItem:
     self.name = info.get_name()
     self.path = parent.get_child(self.name).get_path()
     self.file = parent.get_child(self.name)
-    self.icon = Gtk.IconTheme.get_default().choose_icon(
-        self.info.get_icon().get_names(), Gtk.IconSize.SMALL_TOOLBAR, 0
-        ).load_icon()
+    icon_to_load = Gtk.IconTheme.get_default().choose_icon(
+        self.info.get_icon().get_names(),
+        Gtk.IconSize.SMALL_TOOLBAR, 0
+    )
+    if icon_to_load:
+      self.icon = icon_to_load.load_icon()
+    else:
+      self.icon = None
     self.file_type = self.info.get_file_type()
     self.is_directory = self.file_type == Gio.FileType.DIRECTORY
     if self.is_directory:
