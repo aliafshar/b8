@@ -265,7 +265,6 @@ class Terminal(Gtk.HBox):
 
   def _started_callback(self, t, pid, *args):
     self.pid = pid
-    #self.term.watch_child(pid)
     self.cwd_discovery = CwdDiscovery(pid)
     self.cwd_discovery.connect('cwd-changed', self._on_cwd_changed)
     self.cwd_discovery.start()
