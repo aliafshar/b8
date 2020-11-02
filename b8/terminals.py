@@ -109,6 +109,7 @@ class Terminals(Gtk.Notebook, ui.MenuHandlerMixin):
     t.apply_theme(self.theme)
     t.start(wd)
     self.append(t)
+    t.term.grab_focus()
 
   def append(self, t):
     pagenum = self.append_page(t, t.label)
@@ -137,6 +138,7 @@ class Terminals(Gtk.Notebook, ui.MenuHandlerMixin):
     p.grab_focus()
 
   def remove_terminal(self, t):
+    self.remove(t)
     if not self.get_n_pages():
       self.create()
 
@@ -152,7 +154,6 @@ class Terminals(Gtk.Notebook, ui.MenuHandlerMixin):
 class Terminal(Gtk.HBox):
 
   __gtype_name__ = 'b8-terminals-terminal'
-
 
   file_match = GObject.Property(type=int)
   url_match = GObject.Property(type=int)
@@ -264,13 +265,10 @@ class Terminal(Gtk.HBox):
 
   def _started_callback(self, t, pid, *args):
     self.pid = pid
+    #self.term.watch_child(pid)
     self.cwd_discovery = CwdDiscovery(pid)
     self.cwd_discovery.connect('cwd-changed', self._on_cwd_changed)
     self.cwd_discovery.start()
-    self.term.watch_child(pid)
-    #self._update_label()
-    #self.update_label()
-    #GLib.timeout_add(1000, self.label_updater)
     self.grab_focus()
 
   def _on_cwd_changed(self, w, cwd):
@@ -283,7 +281,7 @@ class Terminal(Gtk.HBox):
         wd,
         [self._get_default_shell()],
         [],
-        GLib.SpawnFlags.DEFAULT | GLib.SpawnFlags.DO_NOT_REAP_CHILD,
+        GLib.SpawnFlags.DO_NOT_REAP_CHILD,
         None,
         None,
         -1,
