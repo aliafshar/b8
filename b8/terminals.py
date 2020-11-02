@@ -144,6 +144,7 @@ class Terminals(Gtk.Notebook, ui.MenuHandlerMixin):
     print('shutdown', self.get_children())
     for child in self.get_children():
       child.term.disconnect(child.exited_handler)
+      child.cwd_discovery.stop()
       if child.pid > 0:
         os.kill(child.pid, 15)
 
