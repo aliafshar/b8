@@ -376,6 +376,7 @@ class Embedded(Gtk.DrawingArea, logs.LoggerMixin):
     if self.options.get('guifont'):
       self._calculate_font_size()
       self.emit('ready')
+    self.debug('option_set', data=args)
 
   def _default_colors_set_callback(self, hl):
     fg, bg, special, tfg, tbg = hl

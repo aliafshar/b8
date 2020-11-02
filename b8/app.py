@@ -142,6 +142,7 @@ class B8(Gtk.Application, logs.LoggerMixin):
       return True
 
   def _on_vim_ready(self, w):
+    self.debug('vim is ready')
     self.window.show_all()
     self.vim.grab_focus()
     self.window.present()
