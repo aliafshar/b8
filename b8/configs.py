@@ -37,7 +37,7 @@ class Item(GObject.GObject):
     return getattr(ns, self.ns_key)
 
   def read_configparser(self, p):
-    return p.get(self.section, self.key, fallback=None)
+    return p.get(self.section, self.name, fallback=None)
 
   def read_env(self, e):
     pass

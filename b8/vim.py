@@ -335,6 +335,7 @@ class Embedded(Gtk.DrawingArea, logs.LoggerMixin):
     action = msg[0]
     msg_handlers = {
         'leave': self._system_leave_callback,
+        'enter': self._system_enter_callback,
     }
     f = msg_handlers.get(action)
     if f:
@@ -345,6 +346,15 @@ class Embedded(Gtk.DrawingArea, logs.LoggerMixin):
   def _system_leave_callback(self):
     """Called for a Vim VimLeave notification."""
     self.emit('exited')
+
+  def _system_enter_callback(self):
+    self.debug('VimEnter autocmd')
+    if not self.options.get('guifont'):
+      self.debug('vim has not set guifont, so we will')
+      self.options['guifont'] = 'Monospace 13'
+    self.debug('guifont', data=self.options['guifont'])
+    self._calculate_font_size()
+    self.emit('ready')
 
   def _redraw_callback(self, msgs):
     """Called for a Vim redraw notification."""
@@ -373,9 +383,6 @@ class Embedded(Gtk.DrawingArea, logs.LoggerMixin):
 
   def _option_set_callback(self, *args):
     self.options.update(args)
-    if self.options.get('guifont'):
-      self._calculate_font_size()
-      self.emit('ready')
     self.debug('option_set', data=args)
 
   def _default_colors_set_callback(self, hl):
@@ -695,6 +702,7 @@ VIM_SIGNALS = [
     ('BufEnter', 'buffers', 'enter', 'expand("<abuf>"), expand("<amatch>")'),
     ('BufDelete', 'buffers', 'delete', 'expand("<abuf>"), expand("<amatch>")'),
     ('VimLeave', 'system', 'leave', ''),
+    ('VimEnter', 'system', 'enter', ''),
 ]
 
 
