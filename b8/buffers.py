@@ -134,9 +134,9 @@ class Buffers(Gtk.ScrolledWindow, ui.MenuHandlerMixin, logs.LoggerMixin):
       path, col, rx, ry = item_spec
       giter = self.model.get_iter(path)
       b = self.model.get_value(giter, 0)
-      action = 'file'
-      menu = self.b8.contexts.menu(action, b.path)
-      menu.popup(None, None, None, None, event.button, event.time)
+      menu = ui.FilePopupMenu(b.file)
+      menu.connect('activate', self._on_menu_activate)
+      menu.popup(event)
       return True
 
 if __name__ == '__main__':
