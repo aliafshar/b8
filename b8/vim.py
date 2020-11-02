@@ -183,6 +183,14 @@ class Result(GObject.GObject):
       self.emit('success', success)
 
 
+class Drag(GObject.GObject):
+
+  __gtype_name__ = 'b8-vim-drag'
+
+  button = GObject.Property(type=int)
+  pressed = GObject.Property(type=bool, default=False)
+
+
 class Embedded(Gtk.DrawingArea, logs.LoggerMixin):
 
   __gtype_name__ = 'b8-vim'
@@ -203,6 +211,7 @@ class Embedded(Gtk.DrawingArea, logs.LoggerMixin):
   mode = GObject.Property(type=Mode)
 
   button_drag = False
+  button_pressed = False
 
   def __init__(self):
     Gtk.DrawingArea.__init__(self)
@@ -213,6 +222,7 @@ class Embedded(Gtk.DrawingArea, logs.LoggerMixin):
     self.mode = None
     self.modes = {}
     self.pending_commands = {}
+    self.drag = Drag()
     self.default_highlight = None
     self.button_pressed = None
     self.set_can_focus(True)
