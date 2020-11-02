@@ -202,6 +202,8 @@ class Embedded(Gtk.DrawingArea, logs.LoggerMixin):
   cid = GObject.Property(type=int, default=0)
   mode = GObject.Property(type=Mode)
 
+  button_drag = False
+
   def __init__(self):
     Gtk.DrawingArea.__init__(self)
     logs.LoggerMixin.__init__(self)
