@@ -594,11 +594,11 @@ class Embedded(Gtk.DrawingArea, logs.LoggerMixin):
     row = int(event.y / self.cell_height)
     mods = []
     if event.state & Gdk.ModifierType.SHIFT_MASK:
-      out.append('S')
+      mods.append('S')
     if event.state & Gdk.ModifierType.CONTROL_MASK:
-      out.append('C')
+      mods.append('C')
     if event.state & Gdk.ModifierType.MOD1_MASK:
-      out.append('A')
+      mods.append('A')
     mod = ''.join(mods)
     return mod, row, col
 
