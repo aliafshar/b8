@@ -109,21 +109,21 @@ class Config(GObject.GObject, logs.LoggerMixin):
 
   items = [
       Item('logging', 'level', 'info',
-        'The logging level to use'),
+        'logging level to use'),
       Item('terminal', 'theme', 'b8',
-        'The terminal theme to use'),
+        'terminal theme to use'),
       Item('terminal', 'font', 'Monospace 13',
-        'The terminal font to use, e.g. "Monospace 13"'),
+        'the terminal font to use, e.g. "Monospace 13"'),
       Item('shortcuts', 'previous-buffer', '<Alt>Up',
-        'Shortcut key to switch to the previous buffer'),
+        'shortcut key to switch to the previous buffer'),
       Item('shortcuts', 'next-buffer', '<Alt>Down',
-        'Shortcut key to switch to the next buffer'),
+        'shortcut key to switch to the next buffer'),
       Item('shortcuts', 'previous-terminal', '<Alt>Left',
-        'Shortcut key to switch to the previous terminal'),
+        'shortcut key to switch to the previous terminal'),
       Item('shortcuts', 'next-terminal', '<Alt>Right',
-        'Shortcut key to switch to the next terminal'),
+        'shortcut key to switch to the next terminal'),
       Item('shortcuts', 'new-terminal', '<Alt>t', 
-        'Shortcut key to create a new terminal'),
+        'shortcut key to create a new terminal'),
   ]
 
   def __init__(self):
@@ -170,13 +170,15 @@ class Config(GObject.GObject, logs.LoggerMixin):
         prog = 'b8',
         description = f'The bominade IDE, version {b8.__version__}',
     )
+    p.add_argument('-v', '--version', action='store_true',
+        help='show the version and exit')
     p.add_argument('-d', '--debug', action='store_true',
-        help='Run with logging level debug')
-    p.add_argument('-f', '--config', help='Configuration file to use',
+        help='run with logging level debug')
+    p.add_argument('-f', '--config', help='configuration file to use',
         default=self.file.get_path())
     p.add_argument('-r', '--remote', action='store_true',
-        help='Run a remote command')
-    p.add_argument('files', nargs='*', help='Files to open')
+        help='run a remote command')
+    p.add_argument('files', nargs='*', help='files to open')
     for item in self.items:
       item.prime_argparser(p)
     ns = p.parse_args()
@@ -190,6 +192,7 @@ class Config(GObject.GObject, logs.LoggerMixin):
       ns.logging_level = 'debug'
     self.files = ns.files
     self.remote = ns.remote
+    self.version = ns.version
     return ns
 
   def _read_argparser(self, ns):

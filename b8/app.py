@@ -11,6 +11,8 @@ gi.require_version("Vte", "2.91")
 import os, sys
 from gi.repository import GObject, GLib, Gio, Gtk, Gdk
 
+import b8
+
 from b8 import logs, configs, vim, files, buffers, service, terminals
 
 
@@ -213,6 +215,9 @@ class B8(GObject.GObject, logs.LoggerMixin):
 
 def main():
   app = B8()
+  if app.config.version:
+    app.info('b8, version {b8.__version__}')
+    return
   if app.config.remote:
     app.run_remote()
   else:
