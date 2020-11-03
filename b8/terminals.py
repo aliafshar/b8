@@ -12,6 +12,7 @@ from b8 import ui
 
 
 class CwdDiscovery(GObject.GObject):
+  """Discover the working directory of a running process."""
 
   __gtype_name__ = 'b8-terminals-cwddiscovery'
 
@@ -57,7 +58,14 @@ class CwdDiscovery(GObject.GObject):
 
 class TerminalTheme(GObject.GObject):
 
-  def __init__(self, name):
+  __gtype_name__ = 'b8-terminal-theme'
+
+  foreground = GObject.Property(type=Gdk.RGBA)
+  background = GObject.Property(type=Gdk.RGBA)
+  cursor = GObject.Property(type=Gdk.RGBA)
+  font = GObject.Property(type=Pango.FontDescription)
+
+  def __init__(self, name, font):
     GObject.GObject.__init__(self)
     self.default_theme = TERMINAL_THEMES.get('b8')
     raw_theme = TERMINAL_THEMES.get(name)
@@ -65,8 +73,8 @@ class TerminalTheme(GObject.GObject):
       self.error(f'theme {theme_name} does not exist, using default')
       raw_theme = self.default_theme
     self.parse(raw_theme)
-    self.font_name = 'Monospace 13'
-    self.font_desc = Pango.font_description_from_string(self.font_name)
+    self.font_name = font
+    self.font = Pango.font_description_from_string(self.font_name)
 
   def parse(self, theme):
     self.foreground = Gdk.RGBA()
@@ -81,6 +89,12 @@ class TerminalTheme(GObject.GObject):
       c = Gdk.RGBA()
       c.parse(s)
       self.palette.append(c)
+
+  def apply(self, t: Vte.Terminal):
+    t.set_colors(self.foreground, self.background, self.palette)
+    t.set_color_cursor(self.cursor)
+    t.set_color_cursor_foreground(self.cursor)
+    t.set_font(self.font)
 
 
 class Terminals(Gtk.Notebook, ui.MenuHandlerMixin):
@@ -98,15 +112,13 @@ class Terminals(Gtk.Notebook, ui.MenuHandlerMixin):
     Gtk.Notebook.__init__(self)
     self.set_tab_pos(Gtk.PositionType.BOTTOM)
     self.set_scrollable(True)
-    self.font = Pango.font_description_from_string(font)
-    self.theme = TerminalTheme(theme)
+    self.theme = TerminalTheme(theme, font)
 
   def create(self, wd=None):
     if not wd:
       wd = os.path.expanduser('~')
     t = Terminal()
-    t.term.set_font(self.font)
-    t.apply_theme(self.theme)
+    self.theme.apply(t.term)
     t.start(wd)
     self.append(t)
     t.term.grab_focus()
@@ -133,9 +145,7 @@ class Terminals(Gtk.Notebook, ui.MenuHandlerMixin):
   def change_tab(self, n):
     self.set_current_page(n)
     p = self.get_nth_page(n)
-    if hasattr(p, 'term'):
-      p = p.term
-    p.grab_focus()
+    p.term.grab_focus()
 
   def remove_terminal(self, t):
     self.remove(t)
@@ -184,12 +194,6 @@ class Terminal(Gtk.HBox):
   def _update_label(self):
     self.label.set_markup(self._markup())
 
-  def apply_theme(self, theme):
-    self.term.set_colors(theme.foreground, theme.background, theme.palette)
-    self.term.set_color_cursor(theme.cursor)
-    self.term.set_color_cursor_foreground(theme.cursor)
-    self.term.set_font(theme.font_desc)
-
   def _markup(self):
     ecwd = GLib.markup_escape_text(self.cwd.get_path())
     return f'<span size="small">{ecwd} [<span weight="bold">{self.pid}</span>]</span>'
@@ -230,7 +234,6 @@ class Terminal(Gtk.HBox):
 
 
   def _on_toolbar_clicked(self, w, b, key):
-    print(b, key)
     handlers = {
         'browse': self._on_browse_clicked,
         'terminal': self._on_terminal_clicked,
