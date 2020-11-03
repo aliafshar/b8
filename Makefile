@@ -10,11 +10,13 @@ ve:
 	./ve/bin/pip install -I flit
 	./ve/bin/flit install
 
-sdist: clean
-	flit build
 
 clean:
 	rm -rf build dist b8.egg-info ve __pycache__ b8/__pycache__
+
+sdist: clean
+	cp tools/pyproject.toml .
+	flit build
 
 upload: sdist
 	flit publish
