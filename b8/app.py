@@ -150,6 +150,10 @@ class B8(GObject.GObject, logs.LoggerMixin):
     self.window.show_all()
     self.vim.grab_focus()
     self.window.present()
+    for path in self.config.files:
+      f = Gio.File.new_for_path(path)
+      self.open_buffer(f)
+
 
   def _on_vim_exited(self, w):
     self.debug('goodbye, b8 ♡ u')
