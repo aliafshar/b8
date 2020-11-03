@@ -137,6 +137,8 @@ class Config(GObject.GObject, logs.LoggerMixin):
     self._read_argparser(ns)
     logs.LoggerMixin.set_level(self.values['logging', 'level'])
     self.debug(f'root user directory is at {self.root.get_path()}')
+    self.debug(f'remote={self.remote}')
+    self.debug(f'files={self.files}')
     self.debug('values', data=self.values)
 
   def _create_root(self):
@@ -172,6 +174,9 @@ class Config(GObject.GObject, logs.LoggerMixin):
         help='Run with logging level debug')
     p.add_argument('-f', '--config', help='Configuration file to use',
         default=self.file.get_path())
+    p.add_argument('-r', '--remote', action='store_true',
+        help='Run a remote command')
+    p.add_argument('files', nargs='*', help='Files to open')
     for item in self.items:
       item.prime_argparser(p)
     ns = p.parse_args()
@@ -183,6 +188,8 @@ class Config(GObject.GObject, logs.LoggerMixin):
         raise ConfigError(e)
     if ns.debug:
       ns.logging_level = 'debug'
+    self.files = ns.files
+    self.remote = ns.remote
     return ns
 
   def _read_argparser(self, ns):

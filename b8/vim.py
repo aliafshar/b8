@@ -316,6 +316,7 @@ class Embedded(Gtk.DrawingArea, logs.LoggerMixin):
 
   def _buffers_callback(self, msg):
     action, bs, path = msg
+    self.debug(f'buffers event {msg}')
     if not path:
       return
     bnum = int(bs)
@@ -328,8 +329,7 @@ class Embedded(Gtk.DrawingArea, logs.LoggerMixin):
     if f:
       f(bnum, gf)
     else:
-      print('unhandled buffers', msg)
-    print('buffers', msg)
+      self.debug(f'buffers event unhandled {msg}')
 
   def _buffers_enter_callback(self, bnum, f):
     self.emit('buffer-changed', bnum, f)

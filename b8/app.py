@@ -11,7 +11,7 @@ gi.require_version("Vte", "2.91")
 import os, sys
 from gi.repository import GObject, GLib, Gio, Gtk, Gdk
 
-from b8 import logs, configs, vim, files, buffers, terminals
+from b8 import logs, configs, vim, files, buffers, service, terminals
 
 
 class B8Window(Gtk.Window, logs.LoggerMixin):
@@ -48,10 +48,13 @@ class B8(GObject.GObject, logs.LoggerMixin):
 
   __gtype_name__ = 'b8-app'
 
+
   def __init__(self):
     GObject.GObject.__init__(self)
     logs.LoggerMixin.__init__(self)
     self.config = configs.Config()
+
+    self.service = service.Service(self)
     self._add_actions()
     self.vim = vim.Embedded()
     self.vim.connect('ready', self._on_vim_ready)
@@ -73,11 +76,17 @@ class B8(GObject.GObject, logs.LoggerMixin):
     self.vim.connect('buffer-deleted', self._on_buffer_deleted)
     self.buffers.connect('buffer-activated', self._on_buffer_activated)
 
-  def _on_directory_activated(self, w, f):
+  def browse(self, f):
     self.files.browse(f)
 
-  def _on_file_activated(self, w, f):
+  def open_buffer(self, f):
     self.vim.open_buffer(f.get_path())
+
+  def _on_directory_activated(self, w, f):
+    self.browse(f)
+
+  def _on_file_activated(self, w, f):
+    self.open_buffer(f)
 
   def _on_buffer_changed(self, w, bnum, f):
     self.buffers.change(f, bnum)
@@ -150,25 +159,60 @@ class B8(GObject.GObject, logs.LoggerMixin):
     self.quit()
     return True
 
+  def _on_service(self, cmd, args):
+    cmdmap = {
+        'ping': self._on_service_ping,
+        'open': self._on_service_open,
+    }
+    f = cmdmap.get(cmd, self._on_service_unsupported)
+    return f(*args)
+
+  def _on_service_ping(self):
+    return ['pong']
+
+  def _on_service_open(self, *files):
+    self.debug(f'remote open {files}')
+    for path in files:
+      f = Gio.File.new_for_path(path)
+      self.open_buffer(f)
+    return ['ok']
+
+  def _on_service_unsupported(self, *args):
+    return ['unknown', args]
+
   def run(self):
+    if self.config.remote:
+      return
     self.debug('activating')
     self.window = B8Window(self)
     self.window.connect('key-press-event', self._on_key_press_event)
     self._add_actions()
+    self.service.start()
     self.vim.start()
     self.terminals.create(os.path.expanduser('~'))
     self.files.browse_path(os.path.expanduser('~'))
     Gtk.main()
 
+  def run_remote(self):
+    run = service.Runtime()
+    for c in run.available():
+      c.open(self.config.files)
+      return
+    self.error('no instances to connect to')
+    return
+
   def quit(self):
+    self.service.shutdown()
     self.terminals.shutdown()
     self.vim.quit()
 
 
-
 def main():
   app = B8()
-  app.run()
+  if app.config.remote:
+    app.run_remote()
+  else:
+    app.run()
 
 
 if __name__ == '__main__':
