@@ -14,13 +14,20 @@ ve:
 clean:
 	rm -rf build dist b8.egg-info ve __pycache__ b8/__pycache__
 
-sdist: clean
+copytoml:
+	cp tools/pyproject.toml .
+	git add pyproject.toml
+
+uncopytoml:
+	git rm pyproject.toml
+
+sdist:
 	flit build
 
-upload: sdist
+upload:
 	flit publish
 
-release: upload
+release: clean copytoml upload uncopytoml
 	make clean
 	echo done
 
