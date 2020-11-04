@@ -30,6 +30,10 @@ class Item(GObject.GObject):
     self.default = default
     self.description = description
 
+  def __repr__(self):
+    return (f'Item<{repr(self.section)}, {repr(self.name)}, '
+            f'default={repr(self.default)}, help={repr(self.description)}>')
+
   def prime_argparser(self, p):
     p.add_argument(self.arg_name, help=self.description)
 
@@ -203,6 +207,17 @@ class Config(GObject.GObject, logs.LoggerMixin):
 
   def get(self, key):
     return self.values.get(key)
+
+  @classmethod
+  def generate_help(cls):
+    section = None
+    for item in cls.items:
+      if item.section != section:
+        if section:
+          print()
+        section = item.section
+        print(f'[{section}]')
+      print(f'{item.name} = {item.default}  # {item.description}')
 
 
 if __name__ == '__main__':

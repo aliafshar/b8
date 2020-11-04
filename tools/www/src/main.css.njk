@@ -1,0 +1,8 @@
+---
+permalink: main.css
+---
+{% set css %}
+  {% include "theme.css" %}
+{% endset %}
+
+{{ css | cssmin | safe }}

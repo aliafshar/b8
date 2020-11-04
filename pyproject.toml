@@ -1,0 +1,23 @@
+[build-system]
+requires = ["flit_core >=2,<4"]
+build-backend = "flit_core.buildapi"
+
+[tool.flit.metadata]
+module = "b8"
+author = "Ali Afshar"
+author-email = "aafshar@gmail.com"
+home-page = "https://gitlab.com/afshar-oss/b8"
+classifiers = ["License :: OSI Approved :: MIT License"]
+description-file = "README.md"
+requires-python = ">=3.5"
+requires = ["msgpack >= 1.0.0"]
+
+[tool.flit.scripts]
+b8 = "b8.app:main"
+
+[tool.flit.sdist]
+exclude = [
+  ".gitignore",
+  "tools/*",
+]
+

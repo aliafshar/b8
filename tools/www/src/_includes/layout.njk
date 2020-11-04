@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="generator" content=
+  "HTML Tidy for HTML5 for Linux version 5.6.0">
+  <meta charset="utf-8">
+  <meta name="viewport" content=
+  "width=device-width, initial-scale=1">
+  <title></title>
+  <link rel="stylesheet" href=
+  "https://cdn.jsdelivr.net/npm/bulma@0.9.1/css/bulma.min.css">
+  <link rel="stylesheet" href=
+  "https://cdn.materialdesignicons.com/5.8.55/css/materialdesignicons.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Raleway:wght@300&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Syne+Mono&display=swap" rel="stylesheet">
+<link href="https://unpkg.com/prismjs@1.20.0/themes/prism-twilight.css" rel="stylesheet">
+  <link rel="stylesheet" href="main.css">
+</head>
+<body>
+  <section class="section box">
+    <div class="container">
+      <div class="tile is-ancestor is-vertical">
+        <div class="tile is-parent b8-tools">
+          <div class="tile is-child is-12">
+            top
+          </div>
+        </div>
+        <div class="tile b8-ui">
+          <div class="tile is-vertical is-parent is-2">
+            <div class="tile is-child b8-list">
+              <div class="b8-tools">
+                  {% icon "arrow-up-bold" %}
+                  {% icon "refresh" %}
+                  {% icon "console" %}
+              </div>
+              <nav>
+{{ collections.all | eleventyNavigation | eleventyNavigationToHtml | safe }}
+              </nav>
+            </div>
+            <div class="tile is-child b8-list">
+            </div>
+          </div>
+          <div class="tile is-vertical b8-actions">
+            <div class="tile is-parent b8-ed b8-ed">
+              <div class="tile is-child b8-vim">
+                <div class="b8-content is-size-5">
+                {{ content | safe }}
+                </div>
+              </div>
+            </div>
+            <div class="tile is-parent b8-term">
+              <div class="tile is-child">
+This is the kind of friend
+you are -
+without making me realize
+my soul's anguished history,
+you slip into my house at night,
+and while I am sleeping,
+you silently carry off
+all my suffering and sordid past
+in your beautiful
+hands. b8 loves you.
+              </div>
+            </div>
+            <div class="tile b8-bar is-2">
+              <div class="tile b8-tab is-parent">
+                <div class="tile is-child">
+                  <div class="level ">
+                    <div class="level-left">
+                      <div class="level-item">
+                        <p class="is-size-6 has-text-weight-bold">&copy; 2020</p>
+                      </div>
+                    </div>
+                    <div class="level-right">
+                      <div class="level-item">
+                        <p class="is-size-6">Ali Afshar</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+
+
+    </div>
+  </section>
+</body>
+</html>

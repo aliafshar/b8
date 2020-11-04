@@ -1,0 +1,170 @@
+
+:root {
+  --ui-bg1: #2a2a2a;
+  --ui-bg2: #424242;
+  --ui-bg3: #515151;
+  --ui-fg1: #cacac9;
+  --ui-fg2: #919191;
+  --ed-bg: #042634;
+  --ed-bg2: #083241;
+  --ed-fg1: #39496;
+  --ui-hl: #ed5949;
+  --term-bg: #000;
+  --term-fg: #f00;
+
+  --slz-white: #eee8d5;
+  --slz-cyan: #2aa198;
+  --slz-red: #d30102;
+  --slz-magenta: #d33682;
+  --slz-blue: #268bd2;
+  --slz-violet:	#6c71c4;
+  --slz-green: #859900;
+  --slz-orange: #cb4b16;
+  --slz-yellow: #b58900;
+}
+
+html,body {
+  font-family: 'Raleway';
+}
+
+
+.b8-ui {
+  color: var(--ui-fg1);
+  background-color: var(--ui-bg1);
+}
+
+.b8-tools {
+  background-color: var(--ui-bg2);
+}
+
+
+.b8-button {
+  background-color: var(--ui-bg3);
+  margin-right: 3px;
+}
+
+.b8-tab {
+  background-color: var(--ui-bg2);
+  border-top: 3px solid var(--ui-hl);
+  border-right: 1px solid var(--ui-bg3);
+  color: var(--ui-hl);
+}
+
+.b8-ed {
+  background-color: var(--ed-bg);
+}
+
+.b8-vim {
+  color: var(--slz-white);
+  counter-reset: line;
+  padding: 2em;
+}
+
+.b8-content  {
+}
+
+ .b8-vim li:before {
+  counter-increment: line;
+  content: counter(line);
+  display: inline-block;
+  border-right: 1px solid #ddd;
+  background-color: var(--ed-bg2);
+  padding: 0 .5em;
+  color: #888;
+  margin-right: 0.5em;
+}
+
+
+.b8-actions {
+  border-left: 1px solid var(--ui-bg3);
+}
+
+.b8-term {
+  color: var(--ui-fg2);
+  border-top: 1px solid var(--ui-bg3);
+  background-color: var(--ui-bg1);
+}
+
+.b8-list {
+}
+
+.b8-bar {
+  border-top: 1px solid var(--ui-bg2);
+}
+
+.b8-strong {
+  font-weight: bold;
+}
+
+h1 {
+  font-family: 'Syne Mono', Monospace;
+  font-weight: bold;
+  color: var(--slz-orange);
+  font-size: 1.6em;
+  margin-bottom: 1.4em;
+  letter-spacing: 0.2em;
+}
+
+h2 {
+  font-family: 'Syne Mono', Monospace;
+  font-weight: bold;
+  font-size: 1.3em;
+  color: var(--slz-yellow);
+  margin-top: 1.4em;
+  margin-bottom: 1.4em;
+  border-bottom: 1px solid var(--slz-yellow);
+  padding-bottom: 0.3em;
+  letter-spacing: 0.2em;
+}
+
+a {
+  color: var(--slz-magenta);
+  font-weight: bold;
+}
+
+a:hover {
+  color: var(--slz-blue);
+}
+
+strong {
+  color: var(--slz-cyan);
+  font-weight: bold;
+}
+
+pre, code {
+  font-family: 'PT Mono', Monospace;
+  background-color: var(--ed-bg1);
+  color: var(--slz-green);
+}
+
+table {
+  margin-top: 12px;
+}
+
+table th {
+  font-weight:bold;
+  color: var(--slz-cyan);
+}
+
+li {
+  padding: 1em 0em;
+}
+
+li:first-of-type {
+}
+
+nav li a {
+  color: var(--ui-fg1);
+  font-family: 'Syne Mono';
+  font-size: 1.3em;
+  letter-spacing: 0.1em;
+}
+
+nav li {
+  border-bottom: 1px solid var(--ui-fg2);
+}
+
+.b8-content p {
+  margin-bottom: 1em;
+}
+
