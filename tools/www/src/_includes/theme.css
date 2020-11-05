@@ -5,6 +5,7 @@
   --ui-bg3: #515151;
   --ui-fg1: #cacac9;
   --ui-fg2: #919191;
+  --ui-fg3: #e0e0e0;
   --ed-bg: #042634;
   --ed-bg2: #083241;
   --ed-fg1: #39496;
@@ -63,7 +64,7 @@ html,body {
 .b8-content  {
 }
 
- .b8-vim li:before {
+.b8-vimi li:before {
   counter-increment: line;
   content: counter(line);
   display: inline-block;
@@ -96,7 +97,7 @@ html,body {
   font-weight: bold;
 }
 
-h1 {
+article h1 {
   font-family: 'Syne Mono', Monospace;
   font-weight: bold;
   color: var(--slz-orange);
@@ -105,7 +106,7 @@ h1 {
   letter-spacing: 0.2em;
 }
 
-h2 {
+article h2 {
   font-family: 'Syne Mono', Monospace;
   font-weight: bold;
   font-size: 1.3em;
@@ -147,24 +148,68 @@ table th {
 }
 
 li {
-  padding: 1em 0em;
+  padding: 0.5em 0em;
 }
 
 li:first-of-type {
 }
 
-nav li a {
+nav.b8-left {
+  margin-top: 1em;
+}
+
+nav.b8-left li a {
   color: var(--ui-fg1);
   font-family: 'Syne Mono';
-  font-size: 1.3em;
   letter-spacing: 0.1em;
 }
 
-nav li {
+nav.b8-left li {
   border-bottom: 1px solid var(--ui-fg2);
+  padding: 0.5em 1em;
+}
+
+nav.b8-left li.b8-active {
+  background-color: var(--ui-hl);
+}
+
+nav.b8-left li.b8-active a {
+  color: var(--ui-fg3);
+}
+
+nav.toc li {
+  list-style: none;
+  padding: 0em 0em;
+}
+
+nav.toc li a {
 }
 
 .b8-content p {
-  margin-bottom: 1em;
+  margin: 1em 0em;
 }
 
+aside {
+  margin-left: 2em;
+  padding: 1em;
+  border: 1px solid var(--ui-bg2);
+}
+
+aside h2 {
+  text-align: center;
+  font-family: 'Raleway', sans;
+  color: var(--slz-green);
+  margin: 0em;
+  padding: 0em;
+  padding-bottom: 0.3em;
+  letter-spacing: 0.2em;
+}
+
+table.tablei {
+  background-color: var(--vim-bg);
+  color: var(--ui-fg1);
+}
+
+table.tablei thead th {
+  color: var(--slz-orange);
+}
