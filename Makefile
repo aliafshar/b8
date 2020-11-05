@@ -12,7 +12,7 @@ ve:
 
 
 clean:
-	rm -rf build dist b8.egg-info ve __pycache__ b8/__pycache__
+	rm -rf build dist b8.egg-info ve __pycache__ b8/__pycache__ b8/*.pyc
 
 copytoml:
 	cp tools/pyproject.toml .
