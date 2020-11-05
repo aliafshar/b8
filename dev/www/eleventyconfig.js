@@ -72,8 +72,8 @@ module.exports = function(eleventyConfig) {
 
   return {
     dir : {
-      input: 'tools/www/src',
-      output: 'tools/www/public',
+      input: 'dev/www/src',
+      output: 'dev/www/public',
     },
   }
 };

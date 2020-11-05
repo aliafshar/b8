@@ -15,7 +15,7 @@ clean:
 	rm -rf build dist b8.egg-info ve __pycache__ b8/__pycache__ b8/*.pyc
 
 copytoml:
-	cp tools/pyproject.toml .
+	cp dev/pyproject.toml .
 	git add pyproject.toml
 
 uncopytoml:
@@ -32,13 +32,13 @@ release: clean copytoml upload uncopytoml
 	echo done
 
 wwwreadme:
-	tail -n+4 tools/www/src/index.md > README.md
+	tail -n+4 dev/www/src/index.md > README.md
 
 wwwclean:
-	rm -rf tools/www/public
+	rm -rf dev/www/public
 
 wwwbuild:
-	eleventy --config tools/www/eleventyconfig.js
+	eleventy --config dev/www/eleventyconfig.js
 
 wwwdeploy: wwwbuild
-	cd tools/www && firebase deploy
+	cd dev/www && firebase deploy
