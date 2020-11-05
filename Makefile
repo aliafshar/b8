@@ -10,9 +10,8 @@ ve:
 	./ve/bin/pip install -I flit
 	./ve/bin/flit install
 
-
 clean:
-	rm -rf build dist b8.egg-info ve __pycache__ b8/__pycache__ b8/*.pyc
+	rm -rf build dist b8.egg-info ve __pycache__ b8/__pycache__ b8/*.pyc .pytype/
 
 copytoml:
 	cp dev/pyproject.toml .
