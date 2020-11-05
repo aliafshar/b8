@@ -2,6 +2,8 @@
 # MIT License. See LICENSE.
 # vim: ft=python sw=2 ts=2 sts=2 tw=80
 
+"""B8 main application entry point and main window"""
+
 import gi
 
 gi.require_version("Gtk", "3.0")
