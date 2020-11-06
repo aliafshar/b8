@@ -26,6 +26,13 @@ sdist:
 upload:
 	flit publish
 
+installocal:
+	flit install
+
+install: clean copytoml installocal uncopytoml
+	make clean
+	echo done
+
 release: clean copytoml upload uncopytoml
 	make clean
 	echo done
