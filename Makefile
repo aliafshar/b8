@@ -48,3 +48,6 @@ wwwbuild:
 
 wwwdeploy: wwwbuild
 	cd dev/www && firebase deploy
+
+wwwserve:
+	eleventy --config dev/www/eleventyconfig.js --serve

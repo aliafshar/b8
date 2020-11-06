@@ -44,6 +44,7 @@ The following actions are available at the top-level. You can modify them in the
 |-----------	|-------------------	|
 | `Alt-Up`    | Previous Buffer   	|
 | `Alt-Down`  | Next Buffer       	|
+| `Alt-c`     | Close All Buffers  	|
 | `Alt-Right` | Previous Terminal 	|
 | `Alt-Left`  | Next Terminal     	|
 | `Alt-t`     | New Terminal      	|
