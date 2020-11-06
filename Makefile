@@ -18,7 +18,7 @@ copytoml:
 	git add pyproject.toml
 
 uncopytoml:
-	git rm pyproject.toml
+	git rm -f pyproject.toml
 
 sdist:
 	flit build
