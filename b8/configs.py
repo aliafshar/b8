@@ -128,6 +128,8 @@ class Config(GObject.GObject, logs.LoggerMixin):
         'shortcut key to switch to the next terminal'),
       Item('shortcuts', 'new-terminal', '<Alt>t', 
         'shortcut key to create a new terminal'),
+      Item('shortcuts', 'close-all', '<Alt>c', 
+        'shortcut key to close all buffers'),
   ]
 
   def __init__(self):

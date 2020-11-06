@@ -116,6 +116,7 @@ class B8(GObject.GObject, logs.LoggerMixin):
         'next-terminal': self._on_nextterminal_activate,
         'previous-terminal': self._on_prevterminal_activate,
         'new-terminal': self._on_newterminal_activate,
+        'close-all': self._on_closeall_activate,
     }
     for act in config_map:
       accel = self.config.get(('shortcuts', act))
@@ -137,6 +138,9 @@ class B8(GObject.GObject, logs.LoggerMixin):
   def _on_prevbuffer_activate(self):
     self.buffers.prev()
 
+  def _on_closeall_activate(self):
+    self.buffers.remove_all()
+
   def _on_key_press_event(self, w, event):
     kn = Gdk.keyval_name(event.keyval)
     if kn in vim.MODIFIER_NAMES:
@@ -157,7 +161,6 @@ class B8(GObject.GObject, logs.LoggerMixin):
     for path in self.config.files:
       f = Gio.File.new_for_path(path)
       self.open_buffer(f)
-
 
   def _on_vim_exited(self, w):
     self.debug('goodbye, b8 ♡ u')

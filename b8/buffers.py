@@ -26,7 +26,6 @@ class Buffers(Gtk.ScrolledWindow, ui.MenuHandlerMixin, logs.LoggerMixin):
     'directory-activated': (GObject.SignalFlags.RUN_FIRST, None, (Gio.File,)),
     'buffer-activated':(GObject.SignalFlags.RUN_FIRST, None, (vim.Buffer,)),
   }
- 
   
   def __init__(self):
     Gtk.ScrolledWindow.__init__(self)
@@ -85,8 +84,6 @@ class Buffers(Gtk.ScrolledWindow, ui.MenuHandlerMixin, logs.LoggerMixin):
       self.tree.get_selection().select_iter(giter)
     b = self.model.get(giter, 0)[0]
     self.debug(f'select {b}')
-    #self.b8.ui.window.set_title(b.path)
-    #self.b8.ui.vimview.drawing_area.grab_focus()
 
   def change(self, f, number):
     self.debug(f'buffer change {f.get_path()} {number}')
@@ -100,19 +97,18 @@ class Buffers(Gtk.ScrolledWindow, ui.MenuHandlerMixin, logs.LoggerMixin):
     b = vim.Buffer(number, f)
     giter = self.model.append([b, b.markup])
     self.select(giter)
-    #self.b8.sessions.buffers.append(b.path)
-    #self.b8.sessions.save()
 
   def remove(self, f, number):
     for grow in self.model:
       b = self.model.get_value(grow.iter, 0)
-      print(b.path, f.get_path())
       if b.number == number and b.path == os.path.realpath(f.get_path()):
         self.model.remove(grow.iter)
-        #self.b8.sessions.buffers.remove(b.path)
-        #self.b8.sessions.save()
         return
 
+  def remove_all(self):
+    for grow in self.model:
+      b = self.model.get_value(grow.iter, 0)
+      self.emit('file-destroyed', b.file)
 
   def on_row_activated(self, w, path, column):
     giter = self.model.get_iter(path)
