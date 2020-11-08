@@ -13,9 +13,7 @@ gi.require_version("Vte", "2.91")
 import os, sys
 from gi.repository import GObject, GLib, Gio, Gtk, Gdk
 
-import b8
-
-from b8 import logs, configs, vim, files, buffers, service, terminals
+from b8 import logs, configs, vim, files, buffers, service, terminals, version
 
 
 class B8Window(Gtk.Window, logs.LoggerMixin):
@@ -221,7 +219,7 @@ class B8(GObject.GObject, logs.LoggerMixin):
 def main():
   app = B8()
   if app.config.version:
-    app.info(f'b8, version {b8.__version__}')
+    app.info(f' Bominade, version {version.VERSION}')
     return
   if app.config.remote:
     app.run_remote()

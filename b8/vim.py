@@ -42,7 +42,7 @@ import msgpack
 from gi.repository import Gio, GLib, GObject, Gdk, Gtk, Pango, PangoCairo
 import cairo
 
-from b8 import ui, logs
+from b8 import ui, logs, version
 
 
 class Grid:
@@ -285,6 +285,9 @@ class Embedded(Gtk.DrawingArea, logs.LoggerMixin):
     r = self.pending_commands[self.cid] = Result(self.cid, name, args)
     return r
 
+  def _set_client_info(self):
+    self._cmd('nvim_set_client_info', ['b8', version.as_dict(), 'ui', [], {}])
+
   def _out_callback(self, *args):
     if self.vim_out.is_readable():
       d = self.vim_out.read_bytes(1024)
@@ -347,7 +350,7 @@ class Embedded(Gtk.DrawingArea, logs.LoggerMixin):
     if f:
       f()
     else:
-      print('unhandled system', msg)
+      self.debug(f'system event unhandled: {msg}')
 
   def _system_leave_callback(self):
     """Called for a Vim VimLeave notification."""
@@ -486,6 +489,7 @@ class Embedded(Gtk.DrawingArea, logs.LoggerMixin):
 
     self._vim_attach()
     self._vim_subscribe()
+    self._set_client_info()
 
   def _calculate_font_size(self):
     self.font_name = self.options['guifont']
