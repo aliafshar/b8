@@ -196,7 +196,7 @@ class Config(GObject.GObject, logs.LoggerMixin):
         raise ConfigError(e)
     if ns.debug:
       ns.logging_level = 'debug'
-    self.files = ns.files
+    self.files = [os.path.abspath(os.path.expanduser(p)) for p in ns.files]
     self.remote = ns.remote
     self.version = ns.version
     return ns
