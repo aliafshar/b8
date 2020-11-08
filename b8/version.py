@@ -4,7 +4,7 @@
 
 """B8 version information"""
 
-VERSION  = '0.2.2'
+VERSION  = '0.2.3'
 
 def parse():
   return VERSION.split('.')
