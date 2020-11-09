@@ -1,17 +1,20 @@
 
 run:
-	python3 b8.py
+	PYTHONPATH=. python3 b8/app.py
 
-lint:
-	flake8
+verun: ve copytoml veinstall uncopytoml
+	./ve/bin/b8
+
 
 ve:
 	virtualenv -p python3 --system-site-packages ve
 	./ve/bin/pip install -I flit
+
+veinstall:
 	./ve/bin/flit install
 
 clean:
-	rm -rf build dist b8.egg-info ve __pycache__ b8/__pycache__ b8/*.pyc .pytype/
+	rm -rf build dist b8.egg-info ve __pycache__ b8/__pycache__ b8/*.pyc .pytype/ ve
 
 copytoml:
 	cp dev/pyproject.toml .
