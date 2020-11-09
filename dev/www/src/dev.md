@@ -11,6 +11,35 @@ templateEngineOverride: njk,md
 
 This information should help you if you want to contribute to Bominade.
 
+## Source code
+
+Grab it:
+
+```bash
+git clone https://gitlab.com/afshar-oss/b8.git
+```
+
+## Run b8
+
+Using your system environment.
+
+```bash
+make run
+```
+
+In a virtualenv
+
+```bash
+make verun
+```
+
+## Embedding NeoVim
+
+The NeoVim Gtk widget is entirely reusable. You can write your own Python NeoVim
+GTK in a few lines of code. See the
+[most basic example](https://gitlab.com/afshar-oss/b8/-/blob/dev/dev/examples/gvim.py) of doing this.
+
+
 ## Bugs and feature requests
 
 You can see the open bugs on the [Issue tracker](https://gitlab.com/afshar-oss/b8/-/issues). We
