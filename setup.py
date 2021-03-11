@@ -10,7 +10,7 @@ setup(
     author_email="aafshar@gmail.com",
     description="Python API for Neohub heating controllers from Heatmiser.",
     long_description="Python API for Neohub heating controllers from Heatmiser.",
-    url="https://gitlab.com/virchow-personal/neohubby",
+    url="https://gitlab.com/afshar-oss/neohubby",
     py_modules=['neohubby'],
     classifiers=[
         "Programming Language :: Python :: 3",

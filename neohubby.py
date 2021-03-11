@@ -8,6 +8,9 @@
 import json, socket
 
 
+DEBUG = False
+
+
 class Sender:
 
   def send(self, msg: dict):
@@ -22,17 +25,20 @@ class SocketSender(Sender):
   def send(self, msg: dict):
     d = json.dumps(msg)
     payload = '{}\0\r'.format(d).encode('ascii')
-    print([payload])
+    if DEBUG:
+      print([payload])
     self._sock.send(payload)
     r = self._recvall()
-    print([r])
+    if DEBUG:
+      print([r])
     return json.loads(r.strip())
 
   def _recvall(self):
     fragments = []
     while True: 
       chunk = self._sock.recv(4096)
-      print([chunk])
+      if DEBUG:
+        print([chunk])
       if chunk == b'\0': 
         break
       fragments.append(chunk)
@@ -200,35 +206,12 @@ class Hub:
     return self.send({'INFO': 0})
     
 
-
-
 def new_hub(host, port=4242):
   return Hub(SocketSender(host, port))
 
   
-
-
 if __name__ == '__main__':
   h = new_hub('10.0.0.30')
-  #p = h.get_zones()
-  #p = h.get_live_data()
-  #print(p)
-  #print(p.keys())
-  #print(p['devices'][0].keys())
-
-  #d = p['devices'][0]
-
-  #print(d['ZONE_NAME'])
-  #print(d['ACTIVE_PROFILE'])
-  #for z in p:
-  #  print(z)
-
-  #h.zone_title('Bedroom 3 Ensuite', 'Haeideh Ensuite')
-  #r = h.run_profile_id(p, ['Office'])
-  #print(r)
-
-  #p = h.get_profile_0('Kitchen')
-
-  p = h.info()
+  p = h.get_zones()
   print(p)
 
